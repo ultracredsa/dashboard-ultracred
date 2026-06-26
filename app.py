@@ -158,7 +158,6 @@ def forzar_numero(val):
     except:
         return 0.0
 
-# 🧠 Función Maestra: Busca el texto en la columna A y extrae el número de la columna B automáticamente
 def obtener_valor_por_texto(texto_buscado):
     texto_buscado_upper = texto_buscado.upper().strip()
     for fila_idx, fila in df_real.iterrows():
@@ -173,7 +172,6 @@ def obtener_valor_por_texto(texto_buscado):
 # =====================================================================
 # 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA (SOPORTA DESPLAZAMIENTOS)
 # =====================================================================
-# KPIs Principales superiores
 capital_vendido = obtener_valor_por_texto("VENTA (K)")
 if capital_vendido == 0.0:
     capital_vendido = obtener_valor_por_texto("VENTA (K) DEL DÍA")
@@ -203,11 +201,10 @@ total_caja = obtener_valor_por_texto("TOTAL CAJA")
 if total_caja == 0.0:
     total_caja = obtener_valor_por_texto("CAJA TOTAL")
 
-# 🌟 SECCIÓN BLOQUE DE COBROS: Búsqueda dinámica por texto (ya no importa el número de fila)
+# Bloque Estructura Interna de Cobros
 monto_vencido_val = obtener_valor_por_texto("MONTO VENCIDO")
 monto_vencido_lbl = "MONTO VENCIDO"
 
-# Para diferenciar el 'COBRADO' de la lista interna del 'TOTAL COBRADO' de arriba, usamos coincidencia exacta si es necesario
 cobrado_val = 0.0
 for fila_idx, fila in df_real.iterrows():
     if str(fila.iloc[0]).strip().upper() == "COBRADO":
@@ -215,9 +212,10 @@ for fila_idx, fila in df_real.iterrows():
         break
 cobrado_lbl = "COBRADO"
 
-monto_total_a_cobrar_val = obtener_valor_por_texto("MONTO TOTAL A COBRAR")
+# 🔥 CÁLCULO MATEMÁTICO DIRECTO PARA EVITAR EL BUG DE LA CELDA EN 0.00
+monto_total_a_cobrar_val = monto_vencido_val - cobrado_val
 
-# 🌟 CRÉDITOS A COBRAR: Búsqueda dinámica en toda la planilla por coincidencia exacta de etiqueta
+# Créditos a Cobrar
 creditos_a_cobrar_val = obtener_valor_por_texto("CRÉDITOS A COBRAR")
 
 # =====================================================================
@@ -238,7 +236,7 @@ col_mora, col_creditos = st.columns([1, 1])
 with col_mora:
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
     
-    # 🌟 Métrica de Créditos a cobrar posicionada abajo de la Mora
+    # 🌟 Métrica de Créditos a cobrar posicionada abajo de la Mora de forma limpia
     st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
     st.metric(label="💼 Créditos a Cobrar", value=f"$ {creditos_a_cobrar_val:,.2f}")
 
@@ -276,25 +274,23 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.2rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (CORREGIDO DINÁMICO POR TEXTO REAl)
+# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (CORREGIDO DINÁMICO POR TEXTO REAL)
 # =====================================================================
 st.subheader("📅 Próximas Compensaciones")
 
 try:
-    # Filtramos dinámicamente todas las filas que contengan de verdad la etiqueta de compensación semanal
     comp_datos = []
     for idx, fila in df_real.iterrows():
         celda_a_str = str(fila.iloc[0]).strip().upper()
-        # Busca específicamente las filas del cronograma semanal del Excel
+        # Filtra de manera exacta las filas semanales con el texto Compensación
         if "COMPENSACIÓN" in celda_a_str and ("TOTAL" not in celda_a_str):
             comp_datos.append({
-                "fecha": str(fila.iloc[0]).strip().replace("*", ""), # Limpiamos el asterisco para que quede estético
+                "fecha": str(fila.iloc[0]).strip().replace("*", ""), # Limpieza estética
                 "monto": forzar_numero(fila.iloc[1])
             })
-            if len(comp_datos) == 4: # Nos aseguramos de traer las 4 semanas vigentes
+            if len(comp_datos) == 4:
                 break
 
-    # Renderizado en las 4 columnas
     col_comp1, col_comp2, col_comp3, col_comp4 = st.columns(4)
     columnas_lista = [col_comp1, col_comp2, col_comp3, col_comp4]
     
@@ -326,13 +322,11 @@ dic_meses = {
 registros_mora = []
 
 try:
-    # Escanea dinámicamente toda la hoja buscando filas que tengan formato de Mes + Año histórico
     for idx, fila in df_real.iterrows():
         celda_a = str(fila.iloc[0]).strip().upper()
         celda_b = fila.iloc[1]
         
-        # Filtra para capturar solo las filas mensuales legítimas de mora
-        if any(mes in celda_a for mes in dic_meses.keys()) and ("TOTAL" not in celda_a) and ("MORA" not in celda_a):
+        if any(mes in celda_a for mes in dic_meses.keys()) and ("TOTAL" not in celda_a) and ("MORA" not in celda_a) and ("COMPENSACIÓN" not in celda_a):
             periodo = celda_a  
             
             anio_detectado = "2025"
