@@ -45,14 +45,14 @@ st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 st.markdown("---")
 
 # ==========================================
-# VINCULACIÓN CON LA NUBE (LINK REAL INCORPORADO)
+# VINCULACIÓN CON LA NUBE
 # ==========================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
 @st.cache_data(ttl=5) 
 def cargar_datos_desde_nube(url):
     df = pd.read_csv(url, header=None, engine="python")
-    # Limpiamos los textos de la primera columna para facilitar búsquedas
+    # Aseguramos string y pasamos a mayúsculas para evitar problemas de tipeo
     df[0] = df[0].astype(str).str.strip().str.upper()
     return df
 
@@ -62,7 +62,7 @@ except:
     st.error("❌ No se pudo conectar con el reporte en la nube.")
     st.stop()
 
-# Función auxiliar robusta para limpiar cualquier celda numérica de texto
+# Función auxiliar para limpiar cualquier celda numérica de texto
 def limpiar_y_convertir_numero(raw_val):
     try:
         if pd.isna(raw_val): return 0.0
@@ -80,7 +80,6 @@ def limpiar_y_convertir_numero(raw_val):
 
 def buscar_valor_numerico(lista_palabras_clave):
     try:
-        # Busca si la fila contiene alguna de las variantes de palabras clave
         for texto in lista_palabras_clave:
             match = df_real[df_real[0].str.contains(texto.upper().strip(), na=False)]
             if not match.empty:
@@ -88,18 +87,18 @@ def buscar_valor_numerico(lista_palabras_clave):
     except: pass
     return 0.0
 
-# Búsqueda flexible por si cambia "TOTAL COBRADO" por "TOTAL COBRADO (DÍA ANTERIOR)" o similar
+# Búsqueda de variables principales
 total_cobrado_dia_anterior = buscar_valor_numerico(["TOTAL COBRADO", "COBRADO"]) 
 morosidad_total = buscar_valor_numerico(["% EN MORA", "MOROSIDAD TOTAL"])     
 creditos_a_cobrar = buscar_valor_numerico(["CRÉDITOS A COBRAR", "CREDITOS A COBRAR"])
 
 efectivo = buscar_valor_numerico(["EFECTIVO"])
 macro_fci = buscar_valor_numerico(["MACRO+FCI", "MACRO"])
-debito_suarez = buscar_valor_numerico(["DÉBITO + CNEL. SUAREZ", "DEBITO"])
+debito_suarez = buscar_valor_numerico(["DÉBITO + CNEL. SUAREZ", "DEBITO", "SUAREZ"])
 total_caja = buscar_valor_numerico(["TOTAL CAJA", "CAJA TOTAL"])
 
 # ==========================================
-# RENDERIZADO DEL DASHBOARD (JERARQUÍA COMPLETA)
+# RENDERIZADO DEL DASHBOARD
 # ==========================================
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
 with col_kpi1:
@@ -124,6 +123,7 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 st.markdown("---")
+# TÍTULO SOLICITADO REVISADO Y PERFECTO
 st.subheader("🚨 % MORA POR MES-AÑO")
 
 meses_validos = [
@@ -138,4 +138,12 @@ df_mora.columns = ["Período Comercial", "% En Mora"]
 df_mora["% En Mora"] = df_mora["% En Mora"].apply(limpiar_y_convertir_numero)
 df_mora["% En Mora"] = df_mora["% En Mora"].apply(lambda x: x*100 if 0 < x < 1.0 else x)
 
-filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:",
+# LÍNEA DEL SELECTBOX CORREGIDA CON PARÉNTESIS CERRADO CORRECTAMENTE
+filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:", ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
+
+if filtro_mora == "Mora Crítica (Mayor a 12%)": df_filtrado = df_mora[df_mora["% En Mora"] > 12.0]
+elif filtro_mora == "Mora Alerta (10% a 12%)": df_filtrado = df_mora[(df_mora["% En Mora"] >= 10.0) & (df_mora["% En Mora"] <= 12.0)]
+elif filtro_mora == "Mora Controlada (Menor a 10%)": df_filtrado = df_mora[df_mora["% En Mora"] < 10.0]
+else: df_filtrado = df_mora
+
+def colore
