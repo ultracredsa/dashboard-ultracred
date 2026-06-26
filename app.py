@@ -51,8 +51,8 @@ URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVn
 
 @st.cache_data(ttl=5) 
 def cargar_datos_desde_nube(url):
+    # Cargamos el dataframe completo sin asumir nombres de columnas
     df = pd.read_csv(url, header=None, engine="python")
-    df[0] = df[0].astype(str).str.strip().str.upper()
     return df
 
 try:
@@ -77,24 +77,32 @@ def limpiar_y_convertir_numero(raw_val):
     except:
         return 0.0
 
-def buscar_valor_numerico(lista_palabras_clave):
+# NUEVA FUNCIÓN DE BÚSQUEDA GLOBAL MULTICOLUMNA
+def buscar_valor_numerico_global(lista_palabras_clave):
     try:
         for texto in lista_palabras_clave:
-            match = df_real[df_real[0].str.contains(texto.upper().strip(), na=False)]
-            if not match.empty:
-                return limpiar_y_convertir_numero(match.iloc[0, 1])
+            texto_buscado = texto.upper().strip()
+            # Buscamos la palabra clave en cualquier columna del archivo
+            for col in df_real.columns:
+                match = df_real[df_real[col].astype(str).str.upper().str.contains(texto_buscado, na=False)]
+                if not match.empty:
+                    # Si la palabra clave está en la columna actual, el número debería estar en la siguiente columna a la derecha
+                    col_index = list(df_real.columns).index(col)
+                    if col_index + 1 < len(df_real.columns):
+                        valor_derecha = match.iloc[0, col_index + 1]
+                        return limpiar_y_convertir_numero(valor_derecha)
     except: pass
     return 0.0
 
-# Búsqueda de variables principales
-total_cobrado_dia_anterior = buscar_valor_numerico(["TOTAL COBRADO", "COBRADO"]) 
-morosidad_total = buscar_valor_numerico(["% EN MORA", "MOROSIDAD TOTAL"])     
-creditos_a_cobrar = buscar_valor_numerico(["CRÉDITOS A COBRAR", "CREDITOS A COBRAR"])
+# Búsqueda de variables principales con el nuevo motor global
+total_cobrado_dia_anterior = buscar_valor_numerico_global(["TOTAL COBRADO", "COBRADO"]) 
+morosidad_total = buscar_valor_numerico_global(["% EN MORA", "MOROSIDAD TOTAL"])     
+creditos_a_cobrar = buscar_valor_numerico_global(["CRÉDITOS A COBRAR", "CREDITOS A COBRAR"])
 
-efectivo = buscar_valor_numerico(["EFECTIVO"])
-macro_fci = buscar_valor_numerico(["MACRO+FCI", "MACRO"])
-debito_suarez = buscar_valor_numerico(["DÉBITO + CNEL. SUAREZ", "DEBITO", "SUAREZ"])
-total_caja = buscar_valor_numerico(["TOTAL CAJA", "CAJA TOTAL"])
+efectivo = buscar_valor_numerico_global(["EFECTIVO"])
+macro_fci = buscar_valor_numerico_global(["MACRO+FCI", "MACRO"])
+debito_suarez = buscar_valor_numerico_global(["DÉBITO + CNEL. SUAREZ", "DEBITO", "SUAREZ"])
+total_caja = buscar_valor_numerico_global(["TOTAL CAJA", "CAJA TOTAL"])
 
 # ==========================================
 # RENDERIZADO DEL DASHBOARD
@@ -122,8 +130,6 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 st.markdown("---")
-
-# TÍTULO MODIFICADO A PETICIÓN EXACTA
 st.subheader("🚨 PORCENTAJE DE MORA POR MES-AÑO")
 
 meses_validos = [
@@ -132,36 +138,49 @@ meses_validos = [
     "ENERO 2026", "FEBRERO 2026", "MARZO 2026", "ABRIL 2026", "MAYO 2026", "JUNIO 2026"
 ]
 
-df_mora = df_real[df_real[0].isin(meses_validos)].copy()
-df_mora.columns = ["Período Comercial", "% En Mora"]
+# Buscamos los meses válidos inspeccionando todas las columnas disponibles
+mascara_meses = df_real.map(lambda cell: str(cell).strip().upper() in meses_validos).any(axis=1)
+df_mora_raw = df_real[mascara_meses].copy()
 
-df_mora["% En Mora"] = df_mora["% En Mora"].apply(limpiar_y_convertir_numero)
-df_mora["% En Mora"] = df_mora["% En Mora"].apply(lambda x: x*100 if 0 < x < 1.0 else x)
+registros_mora = []
+for idx, fila in df_mora_raw.iterrows():
+    for col_idx, celda in enumerate(fila):
+        val_str = str(celda).strip().upper()
+        if val_str in meses_validos and (col_idx + 1 < len(fila)):
+            val_num = limpiar_y_convertir_numero(fila.iloc[col_idx + 1])
+            if 0 < val_num < 1.0:
+                val_num = val_num * 100
+            registros_mora.append({"Período Comercial": val_str, "% En Mora": val_num})
+
+df_mora = pd.DataFrame(registros_mora) if registros_mora else pd.DataFrame(columns=["Período Comercial", "% En Mora"])
 
 filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:", ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
 
-if filtro_mora == "Mora Crítica (Mayor a 12%)": 
-    df_filtrado = df_mora[df_mora["% En Mora"] > 12.0]
-elif filtro_mora == "Mora Alerta (10% a 12%)": 
-    df_filtrado = df_mora[(df_mora["% En Mora"] >= 10.0) & (df_mora["% En Mora"] <= 12.0)]
-elif filtro_mora == "Mora Controlada (Menor a 10%)": 
-    df_filtrado = df_mora[df_mora["% En Mora"] < 10.0]
-else: 
-    df_filtrado = df_mora
+if not df_mora.empty:
+    if filtro_mora == "Mora Crítica (Mayor a 12%)": 
+        df_filtrado = df_mora[df_mora["% En Mora"] > 12.0]
+    elif filtro_mora == "Mora Alerta (10% a 12%)": 
+        df_filtrado = df_mora[(df_mora["% En Mora"] >= 10.0) & (df_mora["% En Mora"] <= 12.0)]
+    elif filtro_mora == "Mora Controlada (Menor a 10%)": 
+        df_filtrado = df_mora[df_mora["% En Mora"] < 10.0]
+    else: 
+        df_filtrado = df_mora
 
-def colorear_celda(val):
-    if val > 12.0: 
-        return 'background-color: #fee2e2; color: #991b1b; font-weight: bold;'
-    elif val > 10.0: 
-        return 'background-color: #fef3c7; color: #92400e;'
-    return 'background-color: #e8f5e9; color: #1b5e20;'
+    def colorear_celda(val):
+        if val > 12.0: 
+            return 'background-color: #fee2e2; color: #991b1b; font-weight: bold;'
+        elif val > 10.0: 
+            return 'background-color: #fef3c7; color: #92400e;'
+        return 'background-color: #e8f5e9; color: #1b5e20;'
 
-df_estilizado = (df_filtrado.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
+    df_estilizado = (df_filtrado.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
 
-col_tabla, col_grafico = st.columns([4, 5])
-with col_tabla:
-    st.markdown("**Matriz Detallada:**")
-    st.dataframe(df_estilizado, use_container_width=True, height=380)
-with col_grafico:
-    st.markdown("**Tendencia Histórica:**")
-    st.line_chart(df_mora.set_index("Período Comercial"), height=380)
+    col_tabla, col_grafico = st.columns([4, 5])
+    with col_tabla:
+        st.markdown("**Matriz Detallada:**")
+        st.dataframe(df_estilizado, use_container_width=True, height=380)
+    with col_grafico:
+        st.markdown("**Tendencia Histórica:**")
+        st.line_chart(df_mora.set_index("Período Comercial"), height=380)
+else:
+    st.info("ℹ️ No se detectaron filas históricas de meses comerciales en el formato esperado dentro del archivo.")
