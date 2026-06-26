@@ -8,7 +8,7 @@ st.set_page_config(page_title="UltraCred - Dashboard de Cobranzas", page_icon="�
 
 st.markdown("""
     <style>
-    /* Fondo general de la app (Gris claro premium, no blanco para descanso visual) */
+    /* Fondo general de la app (Gris claro premium) */
     .main, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: #f0f2f5 !important;
     }
@@ -39,7 +39,7 @@ st.markdown("""
         font-weight: 800 !important;
     }
     
-    /* Bloque Especial de Créditos a Cobrar (Métrica + Lista) */
+    /* Bloque Especial de Créditos a Cobrar */
     .card-detalle-credito-nueva {
         background-color: #ffffff !important;
         padding: 22px;
@@ -69,7 +69,7 @@ st.markdown("""
         font-weight: 800;
     }
     
-    /* Tarjetas de Disponibilidad de Caja */
+    /* Tarjetas de Caja */
     .card-caja {
         background-color: #ffffff !important;
         padding: 18px;
@@ -82,7 +82,7 @@ st.markdown("""
         border-bottom: 1px solid #e2e8f0;
     }
     
-    /* Tarjetas de Próximas Compensaciones */
+    /* Tarjetas de Compensaciones */
     .card-compensacion {
         background-color: #ffffff !important;
         padding: 16px;
@@ -126,12 +126,12 @@ def cargar_datos_desde_nube(url):
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
 # =====================================================================
-# 3. PROCESAMIENTO MULTIREGIONAL DE NÚMEROS (ELIMINA ERRORES DE $0.00)
+# 3. PROCESAMIENTO MULTIREGIONAL DE NÚMEROS
 # =====================================================================
 def forzar_numero(val):
     if not val:
         return 0.0
-    s = str(val).strip().upper().replace("$", "").replace("%", "").replace("K", "").replace(" ", "")
+    s = str(val).strip().upper().replace("$", "").replace("%", "").replace(" ", "")
     if not s:
         return 0.0
     try:
@@ -174,15 +174,32 @@ def obtener_valor_kpi(lista_claves):
     return 0.0
 
 # =====================================================================
-# 4. EXTRACCIÓN DE DATOS
+# 4. EXTRACCIÓN DE DATOS CON DOBLE VERIFICACIÓN
 # =====================================================================
 try:
     fecha_referencia = str(df_real.iloc[0, 1]).strip()
 except:
     fecha_referencia = "Fecha no disponible"
 
-total_cobrado_dia_anterior = obtener_valor_kpi(["COBRADO", "TOTAL COBRADO"]) 
-capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "TOTAL VENDIDO", "VENDIDO"])
+total_cobrado_dia_anterior = obtener_valor_kpi(["TOTAL COBRADO", "COBRADO"]) 
+
+# Intento de extracción por texto para Capital Vendido
+capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "VENDIDO", "CAPITAL VENDIDO (K)"])
+# Respaldo por posición si el rastreo de texto falla (asumiendo proximidad a la cabecera)
+if capital_vendido == 0.0:
+    try:
+        for idx, f in df_real.iterrows():
+            texto_linea = " ".join(f.astype(str)).upper()
+            if "CAPITAL" in texto_linea or "VENDIDO" in texto_linea:
+                for c in f:
+                    val_posible = forzar_numero(c)
+                    if val_posible > 0.0:
+                        capital_vendido = val_posible
+                        break
+            if capital_vendido > 0.0: break
+    except:
+        pass
+
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
 
 efectivo = obtener_valor_kpi(["EFECTIVO"])
@@ -195,13 +212,13 @@ if 0 < morosidad_total < 1.0:
 
 # Extracción específica de Filas 90-93 para Cartera de Créditos
 try:
-    monto_vencido_lbl = str(df_real.iloc[90, 0]).strip() # Fila 91
+    monto_vencido_lbl = str(df_real.iloc[90, 0]).strip() 
     monto_vencido_val = forzar_numero(df_real.iloc[90, 1])
     
-    cobrado_lbl = str(df_real.iloc[91, 0]).strip()       # Fila 92
+    cobrado_lbl = str(df_real.iloc[91, 0]).strip()       
     cobrado_val = forzar_numero(df_real.iloc[91, 1])
     
-    monto_total_a_cobrar_val = forzar_numero(df_real.iloc[92, 1]) # Fila 93 (Total a cobrar)
+    monto_total_a_cobrar_val = forzar_numero(df_real.iloc[92, 1]) 
 except:
     monto_vencido_lbl, monto_vencido_val = "MONTO VENCIDO", 0.0
     cobrado_lbl, cobrado_val = "COBRADO", 0.0
@@ -228,7 +245,6 @@ with col_mora:
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
 
 with col_creditos:
-    # Renderizado exacto solicitado: Total en bloque blanco, abajo solo 2 ítems desglosados
     st.markdown(f"""
         <div class='card-detalle-credito-nueva'>
             <label style='color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.8rem;'>💼 MONTO TOTAL A COBRAR</label>
