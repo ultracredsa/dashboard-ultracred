@@ -45,14 +45,12 @@ st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 st.markdown("---")
 
 # ==========================================
-# VINCULACIÓN CON LA NUBE (REEMPLAZÁ ESTA URL)
+# VINCULACIÓN CON LA NUBE (LINK REAL INCORPORADO)
 # ==========================================
-# PEGÁ ACÁ ADENTRO el link de "Publicar como CSV" que te dio Google Sheets en la Etapa 1
-URL_GOOGLE_SHEETS_CSV = "CONECTA_AQUÍ_TU_LINK_DE_GOOGLE"
+URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
-@st.cache_data(ttl=10) # Se actualiza automáticamente cada 10 segundos si hay cambios
+@st.cache_data(ttl=5) # Se actualiza automáticamente cada 5 segundos si hay cambios
 def cargar_datos_desde_nube(url):
-    # Al ser un CSV web, lo leemos con read_csv indicando que no tiene encabezado fijo
     df = pd.read_csv(url, header=None, engine="python")
     df[0] = df[0].astype(str).str.strip().str.upper()
     return df
@@ -81,7 +79,7 @@ def buscar_valor_numerico(texto):
     except: pass
     return 0.0
 
-# Mapeo de variables
+# Mapeo de variables según tu jerarquía de importancia
 total_cobrado_dia_anterior = buscar_valor_numerico("TOTAL COBRADO") 
 morosidad_total = buscar_valor_numerico("% EN MORA")     
 creditos_a_cobrar = buscar_valor_numerico("CRÉDITOS A COBRAR")
