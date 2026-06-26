@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # =====================================================================
-# 1. CONFIGURACIÓN VISUAL: DISEÑO DE ALTO CONTRASTE INSTITUTIONAL
+# 1. CONFIGURACIÓN VISUAL: DISEÑO DE ALTO CONTRASTE INSTITUTIONAL COMPACTO
 # =====================================================================
 st.set_page_config(page_title="UltraCred - Dashboard de Cobranzas", page_icon="📈", layout="wide")
 
@@ -13,90 +13,110 @@ st.markdown("""
         background-color: #f8fafc !important;
     }
     
+    /* Reducir espacio muerto en la parte superior de la página */
+    [data-testid="stAppViewContainer"] > section:first-child > div:first-child {
+        padding-top: 2rem !important;
+    }
+    
     /* Títulos y textos en color azul oscuro/pizarra */
     h1, h2, h3, h4, h5, h6, p, span, label {
         color: #0f172a !important;
+        margin-bottom: 0.2rem !important;
     }
     
-    /* Tarjetas de Métricas Internas (Estilo UltraCred) */
+    /* Achicar espacio de separación nativo entre bloques de Streamlit */
+    [data-testid="stVerticalBlock"] {
+        gap: 0.75rem !important;
+    }
+    
+    /* Títulos de secciones compactos con línea divisoria integrada */
+    .titulo-seccion {
+        font-size: 1.2rem !important;
+        font-weight: 700 !important;
+        border-bottom: 1px solid #cbd5e1;
+        padding-bottom: 4px;
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.5rem !important;
+    }
+    
+    /* Tarjetas de Métricas Internas Ultra-Compactas */
     div[data-testid="stMetric"] {
         background-color: #ffffff !important;
-        padding: 20px;
-        border-radius: 12px;
+        padding: 12px 16px !important;
+        border-radius: 10px;
         border: 1px solid #e2e8f0 !important;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
-        margin-bottom: 10px;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     div[data-testid="stMetric"] label {
         color: #475569 !important;
         font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        font-size: 0.75rem !important;
+        font-size: 0.7rem !important;
     }
     div[data-testid="stMetric"] [data-testid="stMetricValue"] {
         color: #0f172a !important;
-        font-size: 1.75rem !important;
+        font-size: 1.5rem !important;
         font-weight: 800 !important;
     }
     
     /* Pequeño ajuste para las fechas debajo de las métricas */
     .fecha-kpi {
-        margin-top: -5px;
-        margin-bottom: 15px;
-        font-size: 0.8rem;
+        margin-top: -2px;
+        margin-bottom: 2px;
+        font-size: 0.75rem;
         color: #64748b !important;
         font-weight: 500;
     }
     
-    /* Bloque Especial de Créditos a Cobrar */
+    /* Bloque Especial de Créditos a Cobrar Compacto */
     .card-detalle-credito-nueva {
         background-color: #ffffff !important;
-        padding: 20px;
-        border-radius: 12px;
+        padding: 12px 16px;
+        border-radius: 10px;
         border: 1px solid #e2e8f0 !important;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     }
     .linea-credito {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 8px 0;
-        border-bottom: 1px solid #e2e8f0 !important;
+        padding: 4px 0;
+        border-bottom: 1px solid #f1f5f9 !important;
     }
     .linea-credito:last-child {
         border-bottom: none !important;
     }
     .lbl-credito {
         color: #475569 !important;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         font-weight: 600;
     }
     .val-credito {
         color: #0f172a !important;
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-weight: 800;
     }
     
-    /* Tarjetas de Caja Activa */
+    /* Tarjetas de Caja Activa Compactas */
     .card-caja {
         background-color: #ffffff !important;
-        padding: 16px;
-        border-radius: 12px;
-        border-left: 5px solid #f59e0b;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        padding: 12px;
+        border-radius: 10px;
+        border-left: 4px solid #f59e0b;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         border-top: 1px solid #e2e8f0;
         border-right: 1px solid #e2e8f0;
         border-bottom: 1px solid #e2e8f0;
     }
     
-    /* Tarjetas de Compensaciones */
+    /* Tarjetas de Compensaciones Compactas */
     .card-compensacion {
         background-color: #ffffff !important;
-        padding: 14px;
-        border-radius: 10px;
-        border-top: 4px solid #3b82f6;
-        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        padding: 10px;
+        border-radius: 8px;
+        border-top: 3px solid #3b82f6;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         text-align: center;
         border-left: 1px solid #e2e8f0;
         border-right: 1px solid #e2e8f0;
@@ -108,7 +128,6 @@ st.markdown("""
 # TÍTULO ORIGINAL DE LA APP
 st.title("📈 Reporte UltraCred")
 st.caption("Conectado en tiempo real a Google Sheets (Nube)")
-st.markdown("---")
 
 # =====================================================================
 # 2. VINCULACIÓN CON LA NUBE
@@ -174,7 +193,6 @@ if capital_vendido == 0.0:
 intereses_convenios = obtener_valor_kpi(["INTERESES CONVENIOS", "CONVENIOS"])
 total_cobrado_dia_anterior = obtener_valor_kpi(["TOTAL COBRADO", "COBRADO"]) 
 
-# Extracción ultra-precisa para Porcentaje Morosidad Total
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "% EN MORA"])     
 efectivo = obtener_valor_kpi(["EFECTIVO"])
 macro_fci = obtener_valor_kpi(["MACRO"])
@@ -212,16 +230,15 @@ with col_i:
 # =====================================================================
 # JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + RESUMEN CARTERA DE CRÉDITOS (TÍTULO ORIGINAL)
 # =====================================================================
-st.markdown("---")
 col_mora, col_creditos = st.columns([1, 1])
 with col_mora:
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
 with col_creditos:
     st.markdown(f"""
         <div class='card-detalle-credito-nueva'>
-            <label style='color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.8rem;'>💼 MONTO TOTAL A COBRAR</label>
-            <div style='color: #0f172a; font-size: 1.8rem; font-weight: 800; margin-bottom: 10px;'>$ {monto_total_a_cobrar_val:,.2f}</div>
-            <div style='border-top: 1px solid #e2e8f0; padding-top: 5px;'>
+            <label style='color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; margin-bottom: 2px; display: block;'>💼 MONTO TOTAL A COBRAR</label>
+            <div style='color: #0f172a; font-size: 1.5rem; font-weight: 800; margin-bottom: 6px;'>$ {monto_total_a_cobrar_val:,.2f}</div>
+            <div style='border-top: 1px solid #e2e8f0; padding-top: 3px;'>
                 <div class='linea-credito'>
                     <span class='lbl-credito'>🔹 {monto_vencido_lbl}</span>
                     <span class='val-credito'>$ {monto_vencido_val:,.2f}</span>
@@ -237,24 +254,22 @@ with col_creditos:
 # =====================================================================
 # JERARQUÍA 4: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA (TÍTULO ORIGINAL)
 # =====================================================================
-st.markdown("---")
-st.subheader("🏦 Composición y Disponibilidad de Caja")
+st.markdown("<div class='titulo-seccion'>🏦 Composición y Disponibilidad de Caja</div>", unsafe_allow_html=True)
 
 col_caja1, col_caja2, col_caja3, col_caja4 = st.columns(4)
 with col_caja1:
-    st.markdown(f"<div class='card-caja' style='border-left-color: #10b981;'><span style='color:#475569; font-size:0.8rem; font-weight:700;'>💵 EFECTIVO</span><br><span style='font-size:1.4rem; font-weight:800; color:#059669;'>$ {efectivo:,.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-caja' style='border-left-color: #10b981;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>💵 EFECTIVO</span><br><span style='font-size:1.2rem; font-weight:800; color:#059669;'>$ {efectivo:,.2f}</span></div>", unsafe_allow_html=True)
 with col_caja2:
-    st.markdown(f"<div class='card-caja' style='border-left-color: #3b82f6;'><span style='color:#475569; font-size:0.8rem; font-weight:700;'>🏛️ BANCOS (MACRO + FCI)</span><br><span style='font-size:1.4rem; font-weight:800; color:#2563eb;'>$ {macro_fci:,.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-caja' style='border-left-color: #3b82f6;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>🏛️ BANCOS (MACRO + FCI)</span><br><span style='font-size:1.2rem; font-weight:800; color:#2563eb;'>$ {macro_fci:,.2f}</span></div>", unsafe_allow_html=True)
 with col_caja3:
-    st.markdown(f"<div class='card-caja' style='border-left-color: #8b5cf6;'><span style='color:#475569; font-size:0.8rem; font-weight:700;'>💳 DÉBITO + CNEL. SUAREZ</span><br><span style='font-size:1.4rem; font-weight:800; color:#7c3aed;'>$ {debito_suarez:,.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-caja' style='border-left-color: #8b5cf6;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>💳 DÉBITO + CNEL. SUAREZ</span><br><span style='font-size:1.2rem; font-weight:800; color:#7c3aed;'>$ {debito_suarez:,.2f}</span></div>", unsafe_allow_html=True)
 with col_caja4:
-    st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.8rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.4rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.2rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 # =====================================================================
 # JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (TÍTULO ORIGINAL)
 # =====================================================================
-st.markdown("---")
-st.subheader("📅 Próximas Compensaciones")
+st.markdown("<div class='titulo-seccion'>📅 Próximas Compensaciones</div>", unsafe_allow_html=True)
 
 try:
     comp_datos = [
@@ -268,17 +283,16 @@ try:
     for i, item in enumerate(comp_datos):
         with columnas_lista[i]:
             if item["fecha"] and item["monto"] > 0:
-                st.markdown(f"<div class='card-compensacion'> <span style='color:#475569; font-size:0.8rem; font-weight:700; text-transform:uppercase;'>⏳ {item['fecha']}</span><br><span style='font-size:1.25rem; font-weight:800; color:#1d4ed8;'>$ {item['monto']:,.2f}</span></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='card-compensacion'> <span style='color:#475569; font-size:0.75rem; font-weight:700; text-transform:uppercase;'>⏳ {item['fecha']}</span><br><span style='font-size:1.1rem; font-weight:800; color:#1d4ed8;'>$ {item['monto']:,.2f}</span></div>", unsafe_allow_html=True)
             else:
-                st.markdown("<div class='card-compensacion' style='border-top-color: #cbd5e1;'><span style='color:#64748b; font-size:0.8rem;'>Sin compensaciones programadas</span></div>", unsafe_allow_html=True)
+                st.markdown("<div class='card-compensacion' style='border-top-color: #cbd5e1; padding: 6px;'><span style='color:#64748b; font-size:0.75rem;'>Sin compensaciones</span></div>", unsafe_allow_html=True)
 except:
     st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
 
 # =====================================================================
 # JERARQUÍA 6: PANEL DE PORCENTAJE DE MORA HISTÓRICA (REVISIÓN DESDE FILA 0)
 # =====================================================================
-st.markdown("---")
-st.subheader("🚨 Panel de Control de Mora Histórica")
+st.markdown("<div class='titulo-seccion'>🚨 Panel de Control de Mora Histórica</div>", unsafe_allow_html=True)
 
 dic_meses = {
     "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, "MAYO": 5, "JUNIO": 6,
@@ -286,30 +300,23 @@ dic_meses = {
 }
 
 registros_mora = []
-# Cambiado a df_real.iterrows() para no perder los meses ubicados arriba en la planilla
 for idx, fila in df_real.iterrows():
     fila_str = " ".join(fila.astype(str)).upper()
-    
-    # Excluir la fila del indicador acumulado "MORA TOTAL" para que no altere la historia
     if "MORA TOTAL" in fila_str or "% EN MORA" in fila_str:
         continue
-        
     if any(m in fila_str for m in dic_meses.keys()):
         periodo = ""
         mes_num = 1
         anio_detectado = "2025"
-        
         for m, n in dic_meses.items():
             if m in fila_str:
                 if "2024" in fila_str: anio_detectado = "2024"
                 elif "2026" in fila_str: anio_detectado = "2026"
                 elif "2027" in fila_str: anio_detectado = "2027"
                 else: anio_detectado = "2025"
-                
                 periodo = f"{m} {anio_detectado}"
                 mes_num = n
                 break
-        
         for celda in reversed(fila):
             num = forzar_numero(celda)
             if num is not None and 0.0 < num < 100.0:
@@ -364,11 +371,10 @@ if registros_mora:
         else:
             st.info("No hay registros coincidentes.")
 else:
-    st.warning("⚠️ No se encontraron meses históricos con porcentajes de mora válidos en el archivo.")
+    st.warning("⚠️ No se encontraron meses históricos con porcentajes de mora válidos.")
 
 # =====================================================================
 # 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO) (TÍTULO ORIGINAL)
 # =====================================================================
-st.markdown("---")
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
     st.dataframe(df_real)
