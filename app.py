@@ -49,9 +49,10 @@ st.markdown("---")
 # ==========================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
-@st.cache_data(ttl=5) # Se actualiza automáticamente cada 5 segundos si hay cambios
+@st.cache_data(ttl=5) 
 def cargar_datos_desde_nube(url):
     df = pd.read_csv(url, header=None, engine="python")
+    # Limpiamos los textos de la primera columna para facilitar búsquedas
     df[0] = df[0].astype(str).str.strip().str.upper()
     return df
 
@@ -59,7 +60,6 @@ try:
     df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 except:
     st.error("❌ No se pudo conectar con el reporte en la nube.")
-    st.info("Verificá haber pegado correctamente el link de 'Publicar como CSV' de Google Sheets.")
     st.stop()
 
 # Función auxiliar robusta para limpiar cualquier celda numérica de texto
@@ -69,7 +69,6 @@ def limpiar_y_convertir_numero(raw_val):
         string_limpio = str(raw_val).replace("$", "").replace("%", "").replace(" ", "")
         if not string_limpio: return 0.0
         
-        # Manejo de formatos decimales regionales (puntos y comas de Argentina)
         if "," in string_limpio and "." in string_limpio:
             string_limpio = string_limpio.replace(".", "").replace(",", ".")
         elif "," in string_limpio:
@@ -79,30 +78,32 @@ def limpiar_y_convertir_numero(raw_val):
     except:
         return 0.0
 
-def buscar_valor_numerico(texto):
+def buscar_valor_numerico(lista_palabras_clave):
     try:
-        fila = df_real[df_real[0] == texto.upper().strip()]
-        if not fila.empty:
-            return limpiar_y_convertir_numero(fila.iloc[0, 1])
+        # Busca si la fila contiene alguna de las variantes de palabras clave
+        for texto in lista_palabras_clave:
+            match = df_real[df_real[0].str.contains(texto.upper().strip(), na=False)]
+            if not match.empty:
+                return limpiar_y_convertir_numero(match.iloc[0, 1])
     except: pass
     return 0.0
 
-# Mapeo de variables según tu jerarquía de importancia
-total_cobrado_dia_anterior = buscar_valor_numerico("TOTAL COBRADO") 
-morosidad_total = buscar_valor_numerico("% EN MORA")     
-creditos_a_cobrar = buscar_valor_numerico("CRÉDITOS A COBRAR")
+# Búsqueda flexible por si cambia "TOTAL COBRADO" por "TOTAL COBRADO (DÍA ANTERIOR)" o similar
+total_cobrado_dia_anterior = buscar_valor_numerico(["TOTAL COBRADO", "COBRADO"]) 
+morosidad_total = buscar_valor_numerico(["% EN MORA", "MOROSIDAD TOTAL"])     
+creditos_a_cobrar = buscar_valor_numerico(["CRÉDITOS A COBRAR", "CREDITOS A COBRAR"])
 
-efectivo = buscar_valor_numerico("EFECTIVO")
-macro_fci = buscar_valor_numerico("MACRO+FCI")
-debito_suarez = buscar_valor_numerico("DÉBITO + CNEL. SUAREZ")
-total_caja = buscar_valor_numerico("TOTAL CAJA")
+efectivo = buscar_valor_numerico(["EFECTIVO"])
+macro_fci = buscar_valor_numerico(["MACRO+FCI", "MACRO"])
+debito_suarez = buscar_valor_numerico(["DÉBITO + CNEL. SUAREZ", "DEBITO"])
+total_caja = buscar_valor_numerico(["TOTAL CAJA", "CAJA TOTAL"])
 
 # ==========================================
 # RENDERIZADO DEL DASHBOARD (JERARQUÍA COMPLETA)
 # ==========================================
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
 with col_kpi1:
-    st.metric(label="💰 Total Cobrado (Día Anterior)", value=f"$ {total_cobrado_dia_anterior:,.2f}")
+    st.metric(label="💰 Total Cobrado", value=f"$ {total_cobrado_dia_anterior:,.2f}")
 with col_kpi2:
     mora_display = morosidad_total * 100 if 0 < morosidad_total < 1.0 else morosidad_total
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{mora_display:.2f}%")
@@ -111,4 +112,30 @@ with col_kpi3:
 
 st.markdown("---")
 st.subheader("🏦 Composición y Disponibilidad de Caja")
-col_
+col_caja1, col_caja2, col_caja3, col_caja4 = st.columns(4)
+
+with col_caja1:
+    st.markdown(f"<div class='card-caja' style='border-left-color: #10b981;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>💵 EFECTIVO</span><br><span style='font-size:1.5rem; font-weight:800; color:#059669;'>$ {efectivo:,.2f}</span></div>", unsafe_allow_html=True)
+with col_caja2:
+    st.markdown(f"<div class='card-caja' style='border-left-color: #3b82f6;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>🏛️ BANCOS (MACRO + FCI)</span><br><span style='font-size:1.5rem; font-weight:800; color:#2563eb;'>$ {macro_fci:,.2f}</span></div>", unsafe_allow_html=True)
+with col_caja3:
+    st.markdown(f"<div class='card-caja' style='border-left-color: #8b5cf6;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>💳 DÉBITO + CNEL. SUAREZ</span><br><span style='font-size:1.5rem; font-weight:800; color:#7c3aed;'>$ {debito_suarez:,.2f}</span></div>", unsafe_allow_html=True)
+with col_caja4:
+    st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
+
+st.markdown("---")
+st.subheader("🚨 % MORA POR MES-AÑO")
+
+meses_validos = [
+    "ENERO 2025", "FEBRERO 2025", "MARZO 2025", "ABRIL 2025", "MAYO 2025", "JUNIO 2025",
+    "JULIO 2025", "AGOSTO 2025", "SEPTIEMBRE 2025", "OCTUBRE 2025", "NOVIEMBRE 2025", "DICIEMBRE 2025",
+    "ENERO 2026", "FEBRERO 2026", "MARZO 2026", "ABRIL 2026", "MAYO 2026", "JUNIO 2026"
+]
+
+df_mora = df_real[df_real[0].isin(meses_validos)].copy()
+df_mora.columns = ["Período Comercial", "% En Mora"]
+
+df_mora["% En Mora"] = df_mora["% En Mora"].apply(limpiar_y_convertir_numero)
+df_mora["% En Mora"] = df_mora["% En Mora"].apply(lambda x: x*100 if 0 < x < 1.0 else x)
+
+filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:",
