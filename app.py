@@ -1,7 +1,9 @@
 import streamlit as st
 import pandas as pd
 
+# =====================================================================
 # 1. CONFIGURACIÓN VISUAL DASHBOARD PROFESIONAL
+# =====================================================================
 st.set_page_config(page_title="UltraCred - Dashboard de Cobranzas", page_icon="📈", layout="wide")
 
 st.markdown("""
@@ -44,9 +46,9 @@ st.title("📈 Panel de Control Operativo")
 st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 st.markdown("---")
 
-# ==========================================
-# VINCULACIÓN CON LA NUBE
-# ==========================================
+# =====================================================================
+# 2. VINCULACIÓN CON LA NUBE
+# =====================================================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
 @st.cache_data(ttl=2) 
@@ -61,47 +63,69 @@ def cargar_datos_desde_nube(url):
 
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
-# Función ultra-segura de conversión
+# =====================================================================
+# 3. PROCESAMIENTO Y PARSING DE NÚMEROS (BLINDADO REGIONAL ARGENTINA)
+# =====================================================================
 def forzar_numero(val):
     try:
+        # Convertir a texto y limpiar símbolos comunes
         s = str(val).strip().replace("$", "").replace("%", "").replace(" ", "")
-        if "," in s and "." in s:
+        if not s:
+            return None
+        
+        # Caso A: Tiene comas (ej: 1.250,50 o 7,77) -> Formato clásico AR
+        if "," in s:
             s = s.replace(".", "").replace(",", ".")
-        elif "," in s:
-            s = s.replace(",", ".")
+            return float(s)
+        
+        # Caso B: No tiene comas pero contiene puntos (ej: 1.500.000 o 4.500)
+        if "." in s:
+            # Si tiene más de un punto, son obligatoriamente separadores de miles
+            if s.count(".") > 1:
+                s = s.replace(".", "")
+            else:
+                # Si tiene un solo punto, verificamos si representa miles (3 dígitos después del punto)
+                partes = s.split(".")
+                if len(partes[1]) == 3:
+                    s = s.replace(".", "")
+                else:
+                    # Es un decimal estándar estándar de Python (ej: 7.77)
+                    pass
+                    
         return float(s)
     except:
         return None
 
-# MEJORADO: Captura el ÚLTIMO número de la fila (habitual en estructuras de reporte saldo/total a la derecha)
 def obtener_valor_kpi(lista_claves):
     for fila_idx, fila in df_real.iterrows():
         fila_texto = " ".join(fila.astype(str)).upper()
         if any(clave.upper() in fila_texto for clave in lista_claves):
-            # Recorremos a la inversa para priorizar los totales/saldos de la derecha
+            # Recorremos de derecha a izquierda para capturar primero el saldo/total
             for celda in reversed(fila):
                 num = forzar_numero(celda)
                 if num is not None and num != 0.0:
                     return num
     return 0.0
 
-# Búsqueda de KPI principales
+# =====================================================================
+# 4. EXTRACCIÓN DE DATOS Y TRAZABILIDAD
+# =====================================================================
 total_cobrado_dia_anterior = obtener_valor_kpi(["COBRADO", "TOTAL COBRADO"]) 
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
 creditos_a_cobrar = obtener_valor_kpi(["COBRAR", "CRÉDITOS A COBRAR"])
 
-# Composición de Caja
 efectivo = obtener_valor_kpi(["EFECTIVO"])
 macro_fci = obtener_valor_kpi(["MACRO"])
 debito_suarez = obtener_valor_kpi(["SUAREZ", "DÉBITO"])
 total_caja = obtener_valor_kpi(["TOTAL CAJA", "CAJA TOTAL"])
 
+# Ajuste si la morosidad viene expresada en formato de tasa (0.0777 en vez de 7.77)
 if 0 < morosidad_total < 1.0:
     morosidad_total = morosidad_total * 100.0
 
-# ==========================================
-# RENDERIZADO DEL DASHBOARD
-# ==========================================
+# =====================================================================
+# 5. RENDERIZADO DEL DASHBOARD (INTERFAZ)
+# =====================================================================
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
 with col_kpi1:
     st.metric(label="💰 Total Cobrado", value=f"$ {total_cobrado_dia_anterior:,.2f}")
@@ -146,7 +170,7 @@ for idx, fila in df_real.iterrows():
                 mes_num = n
                 break
         
-        # Recorremos a la inversa el porcentaje para capturar el dato final de mora de esa línea
+        # Leemos desde el final de la fila el porcentaje correspondiente a la mora
         for celda in reversed(fila):
             num = forzar_numero(celda)
             if num is not None and 0.0 < num < 100.0:
@@ -154,13 +178,13 @@ for idx, fila in df_real.iterrows():
                 registros_mora.append({
                     "Período Comercial": periodo, 
                     "% En Mora": val_mora,
-                    "Orden_Fecha": anio * 100 + mes_num # Llave de ordenamiento cronológico interno
+                    "Orden_Fecha": anio * 100 + mes_num  # Llave numérica de orden (ej: 202512)
                 })
                 break
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
-    # Ordenar cronológicamente antes de graficar
+    # Ordenar cronológicamente de forma estricta antes de renderizar
     df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
 
     filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:", 
@@ -176,7 +200,7 @@ if registros_mora:
         elif val > 10.0: return 'background-color: #fef3c7; color: #92400e;'
         return 'background-color: #e8f5e9; color: #1b5e20;'
 
-    # Mostramos solo las columnas de interés en la interfaz
+    # Limpieza visual de cara al usuario
     df_tabla_render = df_filtrado[["Período Comercial", "% En Mora"]]
     df_estilizado = (df_tabla_render.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
 
@@ -184,12 +208,11 @@ if registros_mora:
     with col_tabla:
         st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
     with col_grafico:
-        # Usamos el DataFrame ordenado de forma cronológica para el gráfico de líneas
         st.line_chart(df_mora.set_index("Período Comercial")["% En Mora"])
 
-# ==========================================
-# REVISIÓN DE ESTRUCTURA REAL (SOLO PARA DIAGNÓSTICO)
-# ==========================================
+# =====================================================================
+# 6. REVISIÓN DE ESTRUCTURA REAL (SOLO PARA DIAGNÓSTICO)
+# =====================================================================
 st.markdown("---")
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
     st.write("Acá abajo podés ver exactamente la matriz de datos que viene desde tu Google Sheets:")
