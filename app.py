@@ -139,7 +139,7 @@ st.markdown(f"<h1>📈 Reporte UltraCred <span style='font-size: 1.3rem; color: 
 st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 
 # =====================================================================
-# 3. PROCESAMIENTO DE NÚMEROS
+# 3. PROCESAMIENTO DINÁMICO DE NÚMEROS Y BÚSQUEDA INTELLIGENT
 # =====================================================================
 def forzar_numero(val):
     if not val: return 0.0
@@ -158,47 +158,67 @@ def forzar_numero(val):
     except:
         return 0.0
 
-def obtener_valor_kpi(lista_claves):
+# 🧠 Función Maestra: Busca el texto en la columna A y extrae el número de la columna B automáticamente
+def obtener_valor_por_texto(texto_buscado):
+    texto_buscado_upper = texto_buscado.upper().strip()
     for fila_idx, fila in df_real.iterrows():
-        fila_texto = " ".join(fila.astype(str)).upper()
-        if any(clave.upper() in fila_texto for clave in lista_claves):
-            for celda in fila:
-                celda_str = str(celda).strip().upper()
-                if any(clave.upper() in celda_str for clave in lista_claves): continue
-                num = forzar_numero(celda)
-                if num != 0.0: return num
+        celda_a = str(fila.iloc[0]).strip().upper()
+        if texto_buscado_upper in celda_a:
+            try:
+                return forzar_numero(fila.iloc[1])
+            except:
+                return 0.0
     return 0.0
 
 # =====================================================================
-# 4. EXTRACCIÓN MAESTRA DE DATOS
+# 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA (SOPORTA DESPLAZAMIENTOS)
 # =====================================================================
-try: capital_vendido = forzar_numero(df_real.iloc[1, 1])
-except: capital_vendido = 0.0
+# KPIs Principales superiores
+capital_vendido = obtener_valor_por_texto("VENTA (K)")
 if capital_vendido == 0.0:
-    capital_vendido = obtener_valor_kpi(["VENTA (K)", "VENTA (K) DEL DÍA"])
+    capital_vendido = obtener_valor_por_texto("VENTA (K) DEL DÍA")
 
-intereses_convenios = obtener_valor_kpi(["INTERESES CONVENIOS", "CONVENIOS"])
-total_cobrado_dia_anterior = obtener_valor_kpi(["TOTAL COBRADO", "COBRADO"]) 
+intereses_convenios = obtener_valor_por_texto("INTERESES CONVENIOS")
+if intereses_convenios == 0.0:
+    intereses_convenios = obtener_valor_por_texto("CONVENIOS")
 
-morosidad_total = obtener_valor_kpi(["MORA TOTAL", "% EN MORA"])     
-efectivo = obtener_valor_kpi(["EFECTIVO"])
-macro_fci = obtener_valor_kpi(["MACRO"])
-debito_suarez = obtener_valor_kpi(["SUAREZ", "DÉBITO"])
-total_caja = obtener_valor_kpi(["TOTAL CAJA", "CAJA TOTAL"])
+total_cobrado_dia_anterior = obtener_valor_por_texto("TOTAL COBRADO") 
+if total_cobrado_dia_anterior == 0.0:
+    total_cobrado_dia_anterior = obtener_valor_por_texto("COBRADO")
+
+morosidad_total = obtener_valor_por_texto("MORA TOTAL")
+if morosidad_total == 0.0:
+    morosidad_total = obtener_valor_por_texto("% EN MORA")     
 
 if 0 < morosidad_total < 1.0: 
     morosidad_total = morosidad_total * 100.0
 
-try:
-    monto_vencido_lbl = str(df_real.iloc[90, 0]).strip() 
-    monto_vencido_val = forzar_numero(df_real.iloc[90, 1])
-    cobrado_lbl = str(df_real.iloc[91, 0]).strip()       
-    cobrado_val = forzar_numero(df_real.iloc[91, 1])
-    monto_total_a_cobrar_val = forzar_numero(df_real.iloc[92, 1]) 
-except:
-    monto_vencido_lbl, monto_vencido_val = "MONTO VENCIDO", 0.0
-    cobrado_lbl, cobrado_val = "COBRADO", 0.0
-    monto_total_a_cobrar_val = 0.0
+# Caja Disponibilidades
+efectivo = obtener_valor_por_texto("EFECTIVO")
+macro_fci = obtener_valor_por_texto("MACRO")
+debito_suarez = obtener_valor_por_texto("SUAREZ")
+if debito_suarez == 0.0:
+    debito_suarez = obtener_valor_por_texto("DÉBITO")
+total_caja = obtener_valor_por_texto("TOTAL CAJA")
+if total_caja == 0.0:
+    total_caja = obtener_valor_por_texto("CAJA TOTAL")
+
+# 🌟 SECCIÓN BLOQUE DE COBROS: Búsqueda dinámica por texto (ya no importa el número de fila)
+monto_vencido_val = obtener_valor_por_texto("MONTO VENCIDO")
+monto_vencido_lbl = "MONTO VENCIDO"
+
+# Para diferenciar el 'COBRADO' de la lista interna del 'TOTAL COBRADO' de arriba, usamos coincidencia exacta si es necesario
+cobrado_val = 0.0
+for fila_idx, fila in df_real.iterrows():
+    if str(fila.iloc[0]).strip().upper() == "COBRADO":
+        cobrado_val = forzar_numero(fila.iloc[1])
+        break
+cobrado_lbl = "COBRADO"
+
+monto_total_a_cobrar_val = obtener_valor_por_texto("MONTO TOTAL A COBRAR")
+
+# 🌟 CRÉDITOS A COBRAR: Búsqueda dinámica en toda la planilla por coincidencia exacta de etiqueta
+creditos_a_cobrar_val = obtener_valor_por_texto("CRÉDITOS A COBRAR")
 
 # =====================================================================
 # JERARQUÍA 1 y 2: TOTAL COBRADO Y CAPITAL VENDIDO
@@ -217,6 +237,11 @@ with col_i:
 col_mora, col_creditos = st.columns([1, 1])
 with col_mora:
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
+    
+    # 🌟 Métrica de Créditos a cobrar posicionada abajo de la Mora
+    st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+    st.metric(label="💼 Créditos a Cobrar", value=f"$ {creditos_a_cobrar_val:,.2f}")
+
 with col_creditos:
     st.markdown(f"""
         <div class='card-detalle-credito-nueva'>
@@ -251,16 +276,27 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.2rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES
+# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (DINÁMICAS POR TEXTO/POSICIÓN RELATIVA)
 # =====================================================================
 st.subheader("📅 Próximas Compensaciones")
 
 try:
+    # Localizamos dinámicamente la fila donde empiezan las compensaciones buscando la palabra clave
+    idx_inicio_comp = None
+    for idx, fila in df_real.iterrows():
+        if "COMPENSACIONES" in str(fila.iloc[0]).upper() or "PRÓXIMAS COMPENSACIONES" in str(fila.iloc[0]).upper():
+            idx_inicio_comp = idx + 1
+            break
+            
+    # Si no la encuentra por texto, usa la posición estimada de resguardo (118)
+    if idx_inicio_comp is None:
+        idx_inicio_comp = 118
+
     comp_datos = [
-        {"fecha": str(df_real.iloc[118, 0]).strip(), "monto": forzar_numero(df_real.iloc[118, 1])},
-        {"fecha": str(df_real.iloc[119, 0]).strip(), "monto": forzar_numero(df_real.iloc[119, 1])},
-        {"fecha": str(df_real.iloc[120, 0]).strip(), "monto": forzar_numero(df_real.iloc[120, 1])},
-        {"fecha": str(df_real.iloc[121, 0]).strip(), "monto": forzar_numero(df_real.iloc[121, 1])},
+        {"fecha": str(df_real.iloc[idx_inicio_comp, 0]).strip(), "monto": forzar_numero(df_real.iloc[idx_inicio_comp, 1])},
+        {"fecha": str(df_real.iloc[idx_inicio_comp+1, 0]).strip(), "monto": forzar_numero(df_real.iloc[idx_inicio_comp+1, 1])},
+        {"fecha": str(df_real.iloc[idx_inicio_comp+2, 0]).strip(), "monto": forzar_numero(df_real.iloc[idx_inicio_comp+2, 1])},
+        {"fecha": str(df_real.iloc[idx_inicio_comp+3, 0]).strip(), "monto": forzar_numero(df_real.iloc[idx_inicio_comp+3, 1])},
     ]
     col_comp1, col_comp2, col_comp3, col_comp4 = st.columns(4)
     columnas_lista = [col_comp1, col_comp2, col_comp3, col_comp4]
@@ -271,7 +307,7 @@ try:
             else:
                 st.markdown("<div class='card-compensacion' style='border-top-color: #cbd5e1; padding: 6px;'><span style='color:#64748b; font-size:0.75rem;'>Sin compensaciones</span></div>", unsafe_allow_html=True)
 except:
-    st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
+    st.warning("⚠️ Nota: Inconveniente al cargar compensaciones de forma dinámica.")
 
 # =====================================================================
 # JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (CRONOLÓGICO SEGURO)
@@ -286,18 +322,17 @@ dic_meses = {
 registros_mora = []
 
 try:
-    for idx in range(10, len(df_real)):
-        if idx > 300: 
-            break 
-            
-        celda_a = str(df_real.iloc[idx, 0]).strip().upper()
-        celda_b = df_real.iloc[idx, 1]
+    # Escanea dinámicamente toda la hoja buscando filas que tengan formato de Mes + Año histórico
+    for idx, fila in df_real.iterrows():
+        celda_a = str(fila.iloc[0]).strip().upper()
+        celda_b = fila.iloc[1]
         
-        if any(mes in celda_a for mes in dic_meses.keys()):
+        # Filtra para capturar solo las filas mensuales legítimas de mora
+        if any(mes in celda_a for mes in dic_meses.keys()) and ("TOTAL" not in celda_a) and ("MORA" not in celda_a):
             periodo = celda_a  
             
             anio_detectado = "2025"
-            for anio_posible in [str(a) for a in range(2020, 2030)]:
+            for anio_posible in [str(a) for a in range(2020, 2035)]:
                 if anio_posible in celda_a:
                     anio_detectado = anio_posible
                     break
@@ -317,7 +352,7 @@ try:
                 "Orden_Fecha": int(anio_detectado) * 100 + mes_num
             })
 except Exception as e:
-    st.error(f"Error al procesar el rango de mora histórica: {e}")
+    st.error(f"Error al procesar rango de mora: {e}")
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
@@ -358,18 +393,14 @@ if registros_mora:
         
     with col_grafico:
         if not df_filtrado.empty:
-            # 🌟 SOLUCIÓN DEFINITIVA: Convertimos el Orden_Fecha (YYYYMM) a una Fecha Real reconocible por Streamlit
             df_grafico = df_filtrado.copy()
             df_grafico["Fecha_Real"] = pd.to_datetime(df_grafico["Orden_Fecha"].astype(str) + "01", format="%Y%m%d")
-            
-            # Pasamos la Fecha_Real como el índice del gráfico para forzar la escala temporal nativa
             df_grafico = df_grafico.set_index("Fecha_Real")[["% En Mora"]]
-            
             st.line_chart(df_grafico, height=350)
         else:
             st.info("No hay registros coincidentes para el filtro seleccionado.")
 else:
-    st.warning("⚠️ No se encontraron meses históricos con porcentajes de mora válidos en las columnas A y B.")
+    st.warning("⚠️ No se encontraron meses históricos válidos.")
 
 # =====================================================================
 # 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO)
