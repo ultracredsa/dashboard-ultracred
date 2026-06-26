@@ -39,6 +39,15 @@ st.markdown("""
         border-right: 1px solid #f1f5f9;
         border-bottom: 1px solid #f1f5f9;
     }
+    .card-compensacion {
+        background-color: #ffffff;
+        padding: 16px;
+        border-radius: 12px;
+        border-top: 4px solid #3b82f6;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        text-align: center;
+        margin-bottom: 10px;
+    }
     .fecha-kpi {
         font-size: 0.85rem;
         color: #64748b;
@@ -76,7 +85,7 @@ def forzar_numero(val):
     try:
         s = str(val).strip().replace("$", "").replace("%", "").replace(" ", "")
         if not s:
-            return None
+            return 0.0
         
         if "," in s:
             s = s.replace(".", "").replace(",", ".")
@@ -92,7 +101,7 @@ def forzar_numero(val):
                     
         return float(s)
     except:
-        return None
+        return 0.0
 
 def obtener_valor_kpi(lista_claves):
     for fila_idx, fila in df_real.iterrows():
@@ -107,7 +116,6 @@ def obtener_valor_kpi(lista_claves):
 # =====================================================================
 # 4. EXTRACCIÓN DE DATOS DINÁMICOS
 # =====================================================================
-# Extracción de la celda B1 para la fecha (Fila index 0, Columna index 1 en Pandas)
 try:
     fecha_referencia = str(df_real.iloc[0, 1]).strip()
 except:
@@ -131,7 +139,6 @@ if 0 < morosidad_total < 1.0:
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
 with col_kpi1:
     st.metric(label="💰 Total Cobrado", value=f"$ {total_cobrado_dia_anterior:,.2f}")
-    # Renderizamos la fecha de la celda B1 justo abajo de la métrica
     st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 with col_kpi2:
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
@@ -152,24 +159,45 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 # =====================================================================
-# NUEVO: SECCIÓN DE PRÓXIMAS COMPENSACIONES (FILAS 119 A 122)
+# REFACTORIZADO: SECCIÓN DE PRÓXIMAS COMPENSACIONES (FILAS 119 A 122)
 # =====================================================================
 st.markdown("---")
-st.subheader("📅 Próximas Compensaciones e Información Importante")
+st.subheader("📅 Próximas Compensaciones")
 
 try:
-    # En pandas las filas de Excel 119 a 122 corresponden a los índices 118 a 122 (el extremo final es exclusivo)
-    df_compensaciones = df_real.iloc[118:122].copy()
-    
-    # Limpiamos columnas que estén completamente vacías para que la tabla se vea impecable
-    df_compensaciones = df_compensaciones.loc[:, (df_compensaciones != "").any(axis=0)]
-    
-    if not df_compensaciones.empty:
-        st.dataframe(df_compensaciones, use_container_width=True, hide_index=True, header_setting="none")
-    else:
-        st.info("ℹ️ No se detectaron registros activos en el rango de compensaciones (Filas 119-122).")
+    # Mapeo exacto indexando en base 0 para Pandas:
+    # Fila Excel 119 es índice 118, Fila 120 es 119, Fila 121 es 120, Fila 122 es 121
+    # Columna A es índice 0 (Información/Fecha), Columna B es índice 1 (Monto)
+    comp_datos = [
+        {"fecha": str(df_real.iloc[118, 0]).strip(), "monto": forzar_numero(df_real.iloc[118, 1])},
+        {"fecha": str(df_real.iloc[119, 0]).strip(), "monto": forzar_numero(df_real.iloc[119, 1])},
+        {"fecha": str(df_real.iloc[120, 0]).strip(), "monto": forzar_numero(df_real.iloc[120, 1])},
+        {"fecha": str(df_real.iloc[121, 0]).strip(), "monto": forzar_numero(df_real.iloc[121, 1])},
+    ]
+
+    # Creamos 4 columnas en la pantalla para poner cada tarjeta de compensación lado a lado
+    col_comp1, col_comp2, col_comp3, col_comp4 = st.columns(4)
+    columnas_lista = [col_comp1, col_comp2, col_comp3, col_comp4]
+
+    for i, item in enumerate(comp_datos):
+        with columnas_lista[i]:
+            if item["fecha"] and item["monto"] > 0:
+                st.markdown(f"""
+                    <div class='card-compensacion'>
+                        <span style='color:#4b5563; font-size:0.85rem; font-weight:700; text-transform:uppercase;'>⏳ {item['fecha']}</span><br>
+                        <span style='font-size:1.4rem; font-weight:800; color:#1d4ed8;'>$ {item['monto']:,.2f}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Si la celda está vacía o en cero en la planilla, muestra un indicador sutil
+                st.markdown("""
+                    <div class='card-compensacion' style='border-top-color: #e5e7eb;'>
+                        <span style='color:#9ca3af; font-size:0.85rem;'>Sin compensaciones programadas</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
 except Exception as e:
-    st.warning(f"⚠️ Nota: No se pudo renderizar el bloque de compensaciones del renglón 119-122. Verificá la extensión de la planilla.")
+    st.warning("⚠️ Nota: Asegurate de tener datos cargados en el rango de filas 119 a 122 (Columnas A y B) en tu Google Sheets.")
 
 # =====================================================================
 # 6. PORCENTAJE DE MORA POR MES-AÑO
