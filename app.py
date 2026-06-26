@@ -188,6 +188,7 @@ macro_fci = obtener_valor_kpi(["MACRO"])
 debito_suarez = obtener_valor_kpi(["SUAREZ", "DÉBITO"])
 total_caja = obtener_valor_kpi(["TOTAL CAJA", "CAJA TOTAL"])
 
+# Ajuste por si la morosidad total viene como decimal (ej: 0.05 en lugar de 5.0)
 if 0 < morosidad_total < 1.0: 
     morosidad_total = morosidad_total * 100.0
 
@@ -276,7 +277,7 @@ except:
     st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
 
 # =====================================================================
-# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (OPTIMIZADO COLUMNA A y B)
+# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (CORRECCIÓN DECIMALES)
 # =====================================================================
 st.subheader("🚨 Panel de Control de Mora Histórica")
 
@@ -288,53 +289,45 @@ dic_meses = {
 registros_mora = []
 
 try:
-    # Empezamos en el índice 10 (Fila 11 real de la planilla)
     for idx in range(10, len(df_real)):
-        # Seguro contra bucles infinitos por registros huérfanos muy abajo
-        if idx > 200: 
+        if idx > 250: 
             break 
             
         celda_a = str(df_real.iloc[idx, 0]).strip().upper()
         celda_b = df_real.iloc[idx, 1]
         
-        # Validamos si la columna A efectivamente contiene el nombre de un mes
         if any(mes in celda_a for mes in dic_meses.keys()):
-            periodo = celda_a  # Ejemplo: "ENERO 2020"
+            periodo = celda_a  
             
-            # Buscador de año para el dropdown de filtrado
             anio_detectado = "2025"
             for anio_posible in ["2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027"]:
                 if anio_posible in celda_a:
                     anio_detectado = f"{anio_posible}"
                     break
             
-            # Buscador de ID numérico del mes para el orden cronológico del gráfico lineal
             mes_num = 1
             for mes_nombre, mes_id in dic_meses.items():
                 if mes_nombre in celda_a:
                     mes_num = mes_id
                     break
             
-            # Extraemos de forma directa el porcentaje de la columna B (índice 1)
+            # Extraemos el valor numérico directo
             num_mora = forzar_numero(celda_b)
             
-            # Si el CSV nos entrega la tasa en formato decimal plano (ej: 0.0353 en vez de 3.53)
-            if 0.0 < num_mora < 1.0:
-                num_mora = num_mora * 100.0
-                
-            if num_mora > 0.0:
-                registros_mora.append({
-                    "Período Comercial": periodo, 
-                    "% En Mora": num_mora,
-                    "Año": anio_detectado,
-                    "Orden_Fecha": int(anio_detectado) * 100 + mes_num
-                })
+            # CORRECCIÓN DEFINITIVA: Se eliminó la multiplicación automática por 100 
+            # para evitar transformar 0.70% en 70.0% de forma incorrecta.
+            
+            registros_mora.append({
+                "Período Comercial": periodo, 
+                "% En Mora": num_mora,
+                "Año": anio_detectado,
+                "Orden_Fecha": int(anio_detectado) * 100 + mes_num
+            })
 except Exception as e:
     st.error(f"Error al procesar el rango de mora histórica: {e}")
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
-    # Ordenamos de forma ascendente según el año y mes real calculado
     df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
 
     lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
