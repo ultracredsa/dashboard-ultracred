@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px  # Nueva librería para el gráfico interactivo profesional
 
 # =====================================================================
 # 1. CONFIGURACIÓN VISUAL: DISEÑO DE ALTO CONTRASTE INSTITUTIONAL COMPACTO
@@ -130,13 +131,11 @@ def cargar_datos_desde_nube(url):
 
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
-# Extracción inmediata de la fecha de referencia para el título superior
 try:
     fecha_referencia = str(df_real.iloc[0, 1]).strip()
 except:
     fecha_referencia = "Fecha no disponible"
 
-# TÍTULO DE LA APP CON FECHA INTEGRADA AL LADO
 st.markdown(f"<h1>📈 Reporte UltraCred <span style='font-size: 1.3rem; color: #64748b; font-weight: 500; margin-left: 10px;'>({fecha_referencia})</span></h1>", unsafe_allow_html=True)
 st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 
@@ -188,7 +187,6 @@ macro_fci = obtener_valor_kpi(["MACRO"])
 debito_suarez = obtener_valor_kpi(["SUAREZ", "DÉBITO"])
 total_caja = obtener_valor_kpi(["TOTAL CAJA", "CAJA TOTAL"])
 
-# Ajuste por si la morosidad total viene como decimal (ej: 0.05 en lugar de 5.0)
 if 0 < morosidad_total < 1.0: 
     morosidad_total = morosidad_total * 100.0
 
@@ -277,7 +275,7 @@ except:
     st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
 
 # =====================================================================
-# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (CORRECCIÓN DECIMALES)
+# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (CRONOLÓGICO PLOTLY)
 # =====================================================================
 st.subheader("🚨 Panel de Control de Mora Histórica")
 
@@ -290,7 +288,7 @@ registros_mora = []
 
 try:
     for idx in range(10, len(df_real)):
-        if idx > 250: 
+        if idx > 300: 
             break 
             
         celda_a = str(df_real.iloc[idx, 0]).strip().upper()
@@ -300,9 +298,9 @@ try:
             periodo = celda_a  
             
             anio_detectado = "2025"
-            for anio_posible in ["2020", "2021", "2022", "2023", "2024", "2025", "2026", "2027"]:
+            for anio_posible in [str(a) for a in range(2020, 2030)]:
                 if anio_posible in celda_a:
-                    anio_detectado = f"{anio_posible}"
+                    anio_detectado = anio_posible
                     break
             
             mes_num = 1
@@ -311,11 +309,7 @@ try:
                     mes_num = mes_id
                     break
             
-            # Extraemos el valor numérico directo
             num_mora = forzar_numero(celda_b)
-            
-            # CORRECCIÓN DEFINITIVA: Se eliminó la multiplicación automática por 100 
-            # para evitar transformar 0.70% en 70.0% de forma incorrecta.
             
             registros_mora.append({
                 "Período Comercial": periodo, 
@@ -328,6 +322,7 @@ except Exception as e:
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
+    # ORDENAMIENTO CRUCIAL: Ordenamos de forma permanente el DataFrame por su clave de fecha real
     df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
 
     lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
@@ -359,12 +354,37 @@ if registros_mora:
     df_tabla_render = df_filtrado[["Período Comercial", "% En Mora"]]
     df_estilizado = (df_tabla_render.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
 
-    col_tabla, col_grafico = st.columns([4, 5])
+    col_tabla, col_grafico = st.columns([4, 6])
     with col_tabla:
         st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
+        
     with col_grafico:
         if not df_filtrado.empty:
-            st.line_chart(df_filtrado.set_index("Período Comercial")["% En Mora"])
+            # GRÁFICO MEJORADO: Usamos Plotly Express para garantizar que respete el orden estricto de las filas
+            fig = px.line(
+                df_filtrado, 
+                x="Período Comercial", 
+                y="% En Mora",
+                title="Evolución Temporal de la Mora",
+                markers=True  # Añade puntos en cada mes para que sea más fácil de leer
+            )
+            
+            # Forzamos a Plotly a NO ordenar el eje X alfabéticamente (mantiene el orden del dataframe)
+            fig.update_xaxes(type='category', categoryorder='trace', tickangle=45)
+            
+            # Estilización premium para que combine con tu diseño oscuro/claro
+            fig.update_layout(
+                margin=dict(l=20, r=20, t=40, b=20),
+                height=380,
+                hovermode="x unified",
+                xaxis_title="Línea de Tiempo",
+                yaxis_title="% Morosidad",
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)"
+            )
+            fig.update_traces(line_color="#3b82f6", line_width=2.5)
+            
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No hay registros coincidentes para el filtro seleccionado.")
 else:
