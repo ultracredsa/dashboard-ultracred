@@ -51,16 +51,15 @@ URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVn
 
 @st.cache_data(ttl=2) 
 def cargar_datos_desde_nube(url):
-    df = pd.read_csv(url, header=None, engine="python")
-    # Limpieza básica de espacios en todo el dataframe para evitar fallos de coincidencia
-    df = df.fillna("")
-    return df
+    try:
+        df = pd.read_csv(url, header=None, engine="python")
+        df = df.fillna("")
+        return df
+    except Exception as e:
+        st.error(f"❌ No se pudo conectar con el reporte en la nube. Error: {e}")
+        st.stop()
 
-try:
-    df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
-except:
-    st.error("❌ No se pudo conectar con el reporte en la nube.")
-    st.stop()
+df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
 # Función ultra-segura de conversión
 def forzar_numero(val):
@@ -74,30 +73,29 @@ def forzar_numero(val):
     except:
         return None
 
-# NUEVO BUSCADOR COMPRENSIVO (Busca por palabra clave en cualquier celda y extrae el primer número de esa fila)
+# MEJORADO: Captura el ÚLTIMO número de la fila (habitual en estructuras de reporte saldo/total a la derecha)
 def obtener_valor_kpi(lista_claves):
     for fila_idx, fila in df_real.iterrows():
         fila_texto = " ".join(fila.astype(str)).upper()
-        # Si la fila contiene alguna de nuestras palabras clave
         if any(clave.upper() in fila_texto for clave in lista_claves):
-            # Recorremos los elementos de la fila para encontrar el valor numérico
-            for celda in fila:
+            # Recorremos a la inversa para priorizar los totales/saldos de la derecha
+            for celda in reversed(fila):
                 num = forzar_numero(celda)
                 if num is not None and num != 0.0:
                     return num
     return 0.0
 
-# Búsqueda de variables con alias cortos y directos para maximizar aciertos
+# Búsqueda de KPI principales
 total_cobrado_dia_anterior = obtener_valor_kpi(["COBRADO", "TOTAL COBRADO"]) 
-morosidad_total = obtener_valor_kpi(["MORA", "MOROSIDAD", "% EN MORA"])     
+morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
 creditos_a_cobrar = obtener_valor_kpi(["COBRAR", "CRÉDITOS A COBRAR"])
 
+# Composición de Caja
 efectivo = obtener_valor_kpi(["EFECTIVO"])
 macro_fci = obtener_valor_kpi(["MACRO"])
 debito_suarez = obtener_valor_kpi(["SUAREZ", "DÉBITO"])
 total_caja = obtener_valor_kpi(["TOTAL CAJA", "CAJA TOTAL"])
 
-# Normalizar porcentaje de morosidad si viene en formato decimal
 if 0 < morosidad_total < 1.0:
     morosidad_total = morosidad_total * 100.0
 
@@ -128,33 +126,45 @@ with col_caja4:
 st.markdown("---")
 st.subheader("🚨 PORCENTAJE DE MORA POR MES-AÑO")
 
-meses_validos = [
-    "ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO",
-    "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"
-]
+dic_meses = {
+    "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, "MAYO": 5, "JUNIO": 6,
+    "JULIO": 7, "AGOSTO": 8, "SEPTIEMBRE": 9, "OCTUBRE": 10, "NOVIEMBRE": 11, "DICIEMBRE": 12
+}
 
 registros_mora = []
 for idx, fila in df_real.iterrows():
     fila_str = " ".join(fila.astype(str)).upper()
-    if any(m in fila_str for m in meses_validos) and ("2025" in fila_str or "2026" in fila_str):
-        # Detectar el nombre del período
+    if any(m in fila_str for m in dic_meses.keys()) and ("2025" in fila_str or "2026" in fila_str):
         periodo = ""
-        for m in meses_validos:
+        mes_num = 1
+        anio = 2025
+        
+        for m, n in dic_meses.items():
             if m in fila_str:
-                anio = "2026" if "2026" in fila_str else "2025"
+                anio = 2026 if "2026" in fila_str else 2025
                 periodo = f"{m} {anio}"
+                mes_num = n
                 break
         
-        for celda in fila:
+        # Recorremos a la inversa el porcentaje para capturar el dato final de mora de esa línea
+        for celda in reversed(fila):
             num = forzar_numero(celda)
             if num is not None and 0.0 < num < 100.0:
                 val_mora = num * 100.0 if num < 1.0 else num
-                registros_mora.append({"Período Comercial": periodo, "% En Mora": val_mora})
+                registros_mora.append({
+                    "Período Comercial": periodo, 
+                    "% En Mora": val_mora,
+                    "Orden_Fecha": anio * 100 + mes_num # Llave de ordenamiento cronológico interno
+                })
                 break
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
-    filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:", ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
+    # Ordenar cronológicamente antes de graficar
+    df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
+
+    filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:", 
+                               ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
 
     if filtro_mora == "Mora Crítica (Mayor a 12%)": df_filtrado = df_mora[df_mora["% En Mora"] > 12.0]
     elif filtro_mora == "Mora Alerta (10% a 12%)": df_filtrado = df_mora[(df_mora["% En Mora"] >= 10.0) & (df_mora["% En Mora"] <= 12.0)]
@@ -166,18 +176,21 @@ if registros_mora:
         elif val > 10.0: return 'background-color: #fef3c7; color: #92400e;'
         return 'background-color: #e8f5e9; color: #1b5e20;'
 
-    df_estilizado = (df_filtrado.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
+    # Mostramos solo las columnas de interés en la interfaz
+    df_tabla_render = df_filtrado[["Período Comercial", "% En Mora"]]
+    df_estilizado = (df_tabla_render.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
 
     col_tabla, col_grafico = st.columns([4, 5])
     with col_tabla:
-        st.dataframe(df_estilizado, use_container_width=True)
+        st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
     with col_grafico:
-        st.line_chart(df_mora.set_index("Período Comercial"))
+        # Usamos el DataFrame ordenado de forma cronológica para el gráfico de líneas
+        st.line_chart(df_mora.set_index("Período Comercial")["% En Mora"])
 
 # ==========================================
 # REVISIÓN DE ESTRUCTURA REAL (SOLO PARA DIAGNÓSTICO)
 # ==========================================
 st.markdown("---")
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
-    st.write("Acá abajo podés ver exactamente la matriz de datos que viene desde tu Google Sheets. Revisá en qué filas y columnas están los valores de Efectivo, Cobrado, etc.:")
+    st.write("Acá abajo podés ver exactamente la matriz de datos que viene desde tu Google Sheets:")
     st.dataframe(df_real)
