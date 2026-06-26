@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-# 1. CONFIGURACIÓN VISUAL ESTILO CÁLIDO / DASHBOARD PROFESIONAL
+# 1. CONFIGURACIÓN VISUAL DASHBOARD PROFESIONAL
 st.set_page_config(page_title="UltraCred - Dashboard de Cobranzas", page_icon="📈", layout="wide")
 
 st.markdown("""
@@ -52,7 +52,6 @@ URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVn
 @st.cache_data(ttl=5) 
 def cargar_datos_desde_nube(url):
     df = pd.read_csv(url, header=None, engine="python")
-    # Aseguramos string y pasamos a mayúsculas para evitar problemas de tipeo
     df[0] = df[0].astype(str).str.strip().str.upper()
     return df
 
@@ -62,7 +61,7 @@ except:
     st.error("❌ No se pudo conectar con el reporte en la nube.")
     st.stop()
 
-# Función auxiliar para limpiar cualquier celda numérica de texto
+# Función robusta para limpiar cualquier celda numérica de texto
 def limpiar_y_convertir_numero(raw_val):
     try:
         if pd.isna(raw_val): return 0.0
@@ -123,7 +122,6 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 st.markdown("---")
-# TÍTULO SOLICITADO REVISADO Y PERFECTO
 st.subheader("🚨 % MORA POR MES-AÑO")
 
 meses_validos = [
@@ -135,15 +133,8 @@ meses_validos = [
 df_mora = df_real[df_real[0].isin(meses_validos)].copy()
 df_mora.columns = ["Período Comercial", "% En Mora"]
 
+# Uso de la función segura para evitar el ValueError
 df_mora["% En Mora"] = df_mora["% En Mora"].apply(limpiar_y_convertir_numero)
 df_mora["% En Mora"] = df_mora["% En Mora"].apply(lambda x: x*100 if 0 < x < 1.0 else x)
 
-# LÍNEA DEL SELECTBOX CORREGIDA CON PARÉNTESIS CERRADO CORRECTAMENTE
-filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:", ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
-
-if filtro_mora == "Mora Crítica (Mayor a 12%)": df_filtrado = df_mora[df_mora["% En Mora"] > 12.0]
-elif filtro_mora == "Mora Alerta (10% a 12%)": df_filtrado = df_mora[(df_mora["% En Mora"] >= 10.0) & (df_mora["% En Mora"] <= 12.0)]
-elif filtro_mora == "Mora Controlada (Menor a 10%)": df_filtrado = df_mora[df_mora["% En Mora"] < 10.0]
-else: df_filtrado = df_mora
-
-def colore
+filtro_mora = st.
