@@ -103,7 +103,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📈 Panel de Control Operativo — UltraCred")
+# TÍTULO ORIGINAL DE LA APP
+st.title("📈 Reporte UltraCred")
+st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 st.markdown("---")
 
 # =====================================================================
@@ -118,7 +120,7 @@ def cargar_datos_desde_nube(url):
         df = df.fillna("")
         return df
     except Exception as e:
-        st.error(f"❌ Error de conexión: {e}")
+        st.error(f"❌ No se pudo conectar con el reporte en la nube. Error: {e}")
         st.stop()
 
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
@@ -160,9 +162,8 @@ def obtener_valor_kpi(lista_claves):
 try:
     fecha_referencia = str(df_real.iloc[0, 1]).strip()
 except:
-    fecha_referencia = "Falta Fecha"
+    fecha_referencia = "Fecha no disponible"
 
-# Métricas del bloque superior (Fila 1 a 4 del Excel)
 try: capital_vendido = forzar_numero(df_real.iloc[1, 1])
 except: capital_vendido = 0.0
 if capital_vendido == 0.0:
@@ -171,7 +172,6 @@ if capital_vendido == 0.0:
 intereses_convenios = obtener_valor_kpi(["INTERESES CONVENIOS", "CONVENIOS"])
 total_cobrado_dia_anterior = obtener_valor_kpi(["TOTAL COBRADO", "COBRADO"]) 
 
-# Resto de indicadores
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "% EN MORA"])     
 efectivo = obtener_valor_kpi(["EFECTIVO"])
 macro_fci = obtener_valor_kpi(["MACRO"])
@@ -193,29 +193,31 @@ except:
     monto_total_a_cobrar_val = 0.0
 
 # =====================================================================
-# RENDIMIENTO DE LA FECHA (NUEVO BLOQUE VISUAL UNIFICADO)
+# JERARQUÍA 1 y 2: TOTAL COBRADO Y CAPITAL VENDIDO (TÍTULO ORIGINAL)
 # =====================================================================
-st.markdown(f"### 📅 Rendimiento Operativo del Día — Ref: {fecha_referencia}")
 with st.container():
     st.markdown("<div class='seccion-bloque'>", unsafe_allow_html=True)
     col_v, col_c, col_i = st.columns(3)
     with col_v:
         st.metric(label="📉 Capital Vendido (K)", value=f"$ {capital_vendido:,.2f}")
+        st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
     with col_c:
         st.metric(label="💰 Total Cobrado", value=f"$ {total_cobrado_dia_anterior:,.2f}")
+        st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
     with col_i:
         st.metric(label="🤝 Intereses Convenios", value=f"$ {intereses_convenios:,.2f}")
+        st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =====================================================================
-# RIESGO Y CARTERA TOTAL
+# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + RESUMEN CARTERA DE CRÉDITOS (TÍTULO ORIGINAL)
 # =====================================================================
-st.markdown("### 📊 Estado de Riesgo & Carteras Activas")
+st.markdown("---")
 with st.container():
     st.markdown("<div class='seccion-bloque'>", unsafe_allow_html=True)
     col_mora, col_creditos = st.columns([1, 1])
     with col_mora:
-        st.metric(label="🚨 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
+        st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
     with col_creditos:
         st.markdown(f"""
             <div class='card-detalle-credito-nueva'>
@@ -236,9 +238,10 @@ with st.container():
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =====================================================================
-# DISPONIBILIDAD DE CAJA
+# JERARQUÍA 4: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA (TÍTULO ORIGINAL)
 # =====================================================================
-st.markdown("### 🏦 Composición y Disponibilidad de Caja")
+st.markdown("---")
+st.subheader("🏦 Composición y Disponibilidad de Caja")
 with st.container():
     st.markdown("<div class='seccion-bloque'>", unsafe_allow_html=True)
     col_caja1, col_caja2, col_caja3, col_caja4 = st.columns(4)
@@ -253,9 +256,10 @@ with st.container():
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =====================================================================
-# PRÓXIMAS COMPENSACIONES
+# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (TÍTULO ORIGINAL)
 # =====================================================================
-st.markdown("### 📅 Próximas Compensaciones")
+st.markdown("---")
+st.subheader("📅 Próximas Compensaciones")
 with st.container():
     st.markdown("<div class='seccion-bloque'>", unsafe_allow_html=True)
     try:
@@ -272,9 +276,103 @@ with st.container():
                 if item["fecha"] and item["monto"] > 0:
                     st.markdown(f"<div class='card-compensacion'> <span style='color:#475569; font-size:0.8rem; font-weight:700; text-transform:uppercase;'>⏳ {item['fecha']}</span><br><span style='font-size:1.25rem; font-weight:800; color:#1d4ed8;'>$ {item['monto']:,.2f}</span></div>", unsafe_allow_html=True)
                 else:
-                    st.markdown("<div class='card-compensacion' style='border-top-color: #cbd5e1;'><span style='color:#64748b; font-size:0.8rem;'>Sin vencimientos</span></div>", unsafe_allow_html=True)
+                    st.markdown("<div class='card-compensacion' style='border-top-color: #cbd5e1;'><span style='color:#64748b; font-size:0.8rem;'>Sin compensaciones programadas</span></div>", unsafe_allow_html=True)
     except:
-        st.warning("⚠️ Error al cargar compensaciones.")
+        st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# (Se mantiene el código de Mora Histórica igual debajo)
+# =====================================================================
+# JERARQUÍA 6: PANEL DE PORCENTAJE DE MORA HISTÓRICA (DESDE FILA 11) (TÍTULO ORIGINAL)
+# =====================================================================
+st.markdown("---")
+st.subheader("🚨 Panel de Control de Mora Histórica")
+with st.container():
+    st.markdown("<div class='seccion-bloque'>", unsafe_allow_html=True)
+    
+    dic_meses = {
+        "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, "MAYO": 5, "JUNIO": 6,
+        "JULIO": 7, "AGOSTO": 8, "SEPTIEMBRE": 9, "OCTUBRE": 10, "NOVIEMBRE": 11, "DICIEMBRE": 12
+    }
+
+    registros_mora = []
+    for idx, fila in df_real.iloc[10:].iterrows():
+        fila_str = " ".join(fila.astype(str)).upper()
+        
+        if any(m in fila_str for m in dic_meses.keys()):
+            periodo = ""
+            mes_num = 1
+            anio_detectado = "2025"
+            
+            for m, n in dic_meses.items():
+                if m in fila_str:
+                    if "2024" in fila_str: anio_detectado = "2024"
+                    elif "2026" in fila_str: anio_detectado = "2026"
+                    elif "2027" in fila_str: anio_detectado = "2027"
+                    else: anio_detectado = "2025"
+                    
+                    periodo = f"{m} {anio_detectado}"
+                    mes_num = n
+                    break
+            
+            for celda in reversed(fila):
+                num = forzar_numero(celda)
+                if num is not None and 0.0 < num < 100.0:
+                    val_mora = num * 100.0 if num < 1.0 else num
+                    registros_mora.append({
+                        "Período Comercial": periodo, 
+                        "% En Mora": val_mora,
+                        "Año": anio_detectado,
+                        "Orden_Fecha": int(anio_detectado) * 100 + mes_num
+                    })
+                    break
+
+    if registros_mora:
+        df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
+        df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
+
+        lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
+
+        col_filtro1, col_filtro2 = st.columns(2)
+        with col_filtro1:
+            filtro_anio = st.selectbox("📅 Filtrar por Año Comercial:", lista_anios)
+        with col_filtro2:
+            filtro_mora = st.selectbox("🔍 Filtrar por Nivel de Criticidad:", 
+                                       ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
+
+        if filtro_anio != "Todos los años":
+            df_filtrado = df_mora[df_mora["Año"] == filtro_anio]
+        else:
+            df_filtrado = df_mora
+
+        if filtro_mora == "Mora Crítica (Mayor a 12%)": 
+            df_filtrado = df_filtrado[df_filtrado["% En Mora"] > 12.0]
+        elif filtro_mora == "Mora Alerta (10% a 12%)": 
+            df_filtrado = df_filtrado[(df_filtrado["% En Mora"] >= 10.0) & (df_filtrado["% En Mora"] <= 12.0)]
+        elif filtro_mora == "Mora Controlada (Menor a 10%)": 
+            df_filtrado = df_filtrado[df_filtrado["% En Mora"] < 10.0]
+
+        def colorear_celda(val):
+            if val > 12.0: return 'background-color: #fee2e2; color: #991b1b; font-weight: bold;'
+            elif val > 10.0: return 'background-color: #fef3c7; color: #92400e;'
+            return 'background-color: #e8f5e9; color: #1b5e20;'
+
+        df_tabla_render = df_filtrado[["Período Comercial", "% En Mora"]]
+        df_estilizado = (df_tabla_render.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
+
+        col_tabla, col_grafico = st.columns([4, 5])
+        with col_tabla:
+            st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
+        with col_grafico:
+            if not df_filtrado.empty:
+                st.line_chart(df_filtrado.set_index("Período Comercial")["% En Mora"])
+            else:
+                st.info("No hay registros coincidentes.")
+                
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# =====================================================================
+# 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO) (TÍTULO ORIGINAL)
+# =====================================================================
+st.markdown("---")
+with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
+    st.dataframe(df_real)
