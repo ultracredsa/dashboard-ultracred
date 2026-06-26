@@ -122,7 +122,9 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 st.markdown("---")
-st.subheader("🚨 % MORA POR MES-AÑO")
+
+# TÍTULO MODIFICADO A PETICIÓN EXACTA
+st.subheader("🚨 PORCENTAJE DE MORA POR MES-AÑO")
 
 meses_validos = [
     "ENERO 2025", "FEBRERO 2025", "MARZO 2025", "ABRIL 2025", "MAYO 2025", "JUNIO 2025",
@@ -133,8 +135,33 @@ meses_validos = [
 df_mora = df_real[df_real[0].isin(meses_validos)].copy()
 df_mora.columns = ["Período Comercial", "% En Mora"]
 
-# Uso de la función segura para evitar el ValueError
 df_mora["% En Mora"] = df_mora["% En Mora"].apply(limpiar_y_convertir_numero)
 df_mora["% En Mora"] = df_mora["% En Mora"].apply(lambda x: x*100 if 0 < x < 1.0 else x)
 
-filtro_mora = st.
+filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:", ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
+
+if filtro_mora == "Mora Crítica (Mayor a 12%)": 
+    df_filtrado = df_mora[df_mora["% En Mora"] > 12.0]
+elif filtro_mora == "Mora Alerta (10% a 12%)": 
+    df_filtrado = df_mora[(df_mora["% En Mora"] >= 10.0) & (df_mora["% En Mora"] <= 12.0)]
+elif filtro_mora == "Mora Controlada (Menor a 10%)": 
+    df_filtrado = df_mora[df_mora["% En Mora"] < 10.0]
+else: 
+    df_filtrado = df_mora
+
+def colorear_celda(val):
+    if val > 12.0: 
+        return 'background-color: #fee2e2; color: #991b1b; font-weight: bold;'
+    elif val > 10.0: 
+        return 'background-color: #fef3c7; color: #92400e;'
+    return 'background-color: #e8f5e9; color: #1b5e20;'
+
+df_estilizado = (df_filtrado.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
+
+col_tabla, col_grafico = st.columns([4, 5])
+with col_tabla:
+    st.markdown("**Matriz Detallada:**")
+    st.dataframe(df_estilizado, use_container_width=True, height=380)
+with col_grafico:
+    st.markdown("**Tendencia Histórica:**")
+    st.line_chart(df_mora.set_index("Período Comercial"), height=380)
