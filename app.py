@@ -48,6 +48,13 @@ st.markdown("""
         text-align: center;
         margin-bottom: 10px;
     }
+    .card-detalle-credito {
+        background-color: #ffffff;
+        padding: 20px;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    }
     .fecha-kpi {
         font-size: 0.85rem;
         color: #64748b;
@@ -57,7 +64,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📈 Panel de Control Operativo")
+# Cambio de Título Solicitado
+st.title("📈 Reporte UltraCred")
 st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 st.markdown("---")
 
@@ -121,7 +129,7 @@ try:
 except:
     fecha_referencia = "Fecha no disponible"
 
-# Extracción de KPIs principales según la nueva jerarquía
+# KPIs principales
 total_cobrado_dia_anterior = obtener_valor_kpi(["COBRADO", "TOTAL COBRADO"]) 
 capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "TOTAL VENDIDO", "CAPITAL VENDIDO (K)"])
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
@@ -147,10 +155,34 @@ with col_jer2:
     st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL
+# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + CRÉDITOS A COBRAR DETALLADO
 # =====================================================================
 st.markdown("---")
-st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
+col_mora, col_creditos = st.columns([1, 1])
+
+with col_mora:
+    st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
+
+with col_creditos:
+    st.markdown("<div class='card-detalle-credito'>", unsafe_allow_html=True)
+    st.markdown("<span style='color: #64748b; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;'>💼 Estado de Créditos a Cobrar (Filas 90-93)</span>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+    try:
+        # Extraemos dinámicamente las filas 90 a 93 (índices 89 a 93 en Pandas)
+        for r_idx in range(89, 93):
+            concepto = str(df_real.iloc[r_idx, 0]).strip()
+            monto_raw = df_real.iloc[r_idx, 1]
+            monto_num = forzar_numero(monto_raw)
+            if concepto:
+                st.markdown(f"""
+                    <div style='display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #f1f5f9;'>
+                        <span style='color: #475569; font-size: 0.95rem; font-weight: 500;'>{concepto}</span>
+                        <span style='color: #0f172a; font-size: 0.95rem; font-weight: 700;'>$ {monto_num:,.2f}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+    except:
+        st.caption("No se pudieron leer las filas 90-93 de créditos.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # =====================================================================
 # JERARQUÍA 4: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA
@@ -201,10 +233,10 @@ try:
                     </div>
                 """, unsafe_allow_html=True)
 except Exception as e:
-    st.warning("⚠️ Nota: Ocurrió un inconveniente al cargar el rango de compensaciones (filas 119-122).")
+    st.warning("⚠️ Nota: Ocurrió un inconveniente al cargar el rango de compensaciones.")
 
 # =====================================================================
-# JERARQUÍA 6: PANEL DE PORCENTAJE DE MORA POR MES-AÑO (FILTROS DOBLES)
+# JERARQUÍA 6: PANEL DE PORCENTAJE DE MORA HISTÓRICA (DESDE FILA 11)
 # =====================================================================
 st.markdown("---")
 st.subheader("🚨 Panel de Control de Mora Histórica")
@@ -215,20 +247,29 @@ dic_meses = {
 }
 
 registros_mora = []
-for idx, fila in df_real.iterrows():
+# Leemos de manera segura todo el histórico desde la fila 11 (índice 10 en adelante)
+for idx, fila in df_real.iloc[10:].iterrows():
     fila_str = " ".join(fila.astype(str)).upper()
-    if any(m in fila_str for m in dic_meses.keys()) and ("2025" in fila_str or "2026" in fila_str):
+    
+    # Buscamos patrones de meses y años dentro del texto de la fila completa
+    if any(m in fila_str for m in dic_meses.keys()):
         periodo = ""
         mes_num = 1
         anio_detectado = "2025"
         
+        # Encontrar qué año y mes corresponden
         for m, n in dic_meses.items():
             if m in fila_str:
-                anio_detectado = "2026" if "2026" in fila_str else "2025"
+                if "2024" in fila_str: anio_detectado = "2024"
+                elif "2026" in fila_str: anio_detectado = "2026"
+                elif "2027" in fila_str: anio_detectado = "2027"
+                else: anio_detectado = "2025"
+                
                 periodo = f"{m} {anio_detectado}"
                 mes_num = n
                 break
         
+        # Obtenemos la métrica numérica de morosidad buscando desde atrás
         for celda in reversed(fila):
             num = forzar_numero(celda)
             if num is not None and 0.0 < num < 100.0:
@@ -245,21 +286,24 @@ if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
     df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
 
-    # Controles de filtros en paralelo (Lado a lado)
+    # Obtenemos la lista única de años detectados para armar el filtro dinámico
+    lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
+
+    # Controles de filtros paralelos
     col_filtro1, col_filtro2 = st.columns(2)
     with col_filtro1:
-        filtro_anio = st.selectbox("📅 Filtrar por Año Comercial:", ["Todos los años", "2025", "2026"])
+        filtro_anio = st.selectbox("📅 Filtrar por Año Comercial:", lista_anios)
     with col_filtro2:
         filtro_mora = st.selectbox("🔍 Filtrar por Nivel de Criticidad:", 
                                    ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
 
-    # Aplicación del Filtro 1: Año
+    # Aplicar Filtro 1: Año
     if filtro_anio != "Todos los años":
         df_filtrado = df_mora[df_mora["Año"] == filtro_anio]
     else:
         df_filtrado = df_mora
 
-    # Aplicación del Filtro 2: Criticidad
+    # Aplicar Filtro 2: Criticidad
     if filtro_mora == "Mora Crítica (Mayor a 12%)": 
         df_filtrado = df_filtrado[df_filtrado["% En Mora"] > 12.0]
     elif filtro_mora == "Mora Alerta (10% a 12%)": 
@@ -279,7 +323,6 @@ if registros_mora:
     with col_tabla:
         st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
     with col_grafico:
-        # El gráfico interactivo siempre mantiene la línea de tendencia del segmento filtrado por año
         if not df_filtrado.empty:
             st.line_chart(df_filtrado.set_index("Período Comercial")["% En Mora"])
         else:
