@@ -2,19 +2,30 @@ import streamlit as st
 import pandas as pd
 
 # =====================================================================
-# 1. CONFIGURACIÓN VISUAL DASHBOARD PROFESIONAL (ALTO CONTRASTE)
+# 1. CONFIGURACIÓN VISUAL: FONDO CLARO (NO BLANCO) Y ALTO CONTRASTE
 # =====================================================================
 st.set_page_config(page_title="UltraCred - Dashboard de Cobranzas", page_icon="📈", layout="wide")
 
+# Forzamos fondo claro (#f0f2f5) y colores oscuros para el texto
 st.markdown("""
     <style>
-    .main { background-color: #f8fafc; }
+    /* Fondo general de la app (Gris claro, no blanco) */
+    .main, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
+        background-color: #f0f2f5 !important;
+    }
+    
+    /* Títulos principales */
+    h1, h2, h3, h4, h5, h6, .stText, p, span {
+        color: #1e293b !important;
+    }
+    
+    /* Tarjetas de Métricas (st.metric) */
     div[data-testid="stMetric"] {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         padding: 22px;
         border-radius: 16px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
-        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        border: 1px solid #cbd5e1 !important;
     }
     div[data-testid="stMetric"] label {
         color: #475569 !important;
@@ -28,46 +39,54 @@ st.markdown("""
         font-size: 2rem !important;
         font-weight: 800 !important;
     }
+    
+    /* Tarjetas de Disponibilidad de Caja */
     .card-caja {
-        background: linear-gradient(135deg, #ffffff 0%, #fffdf9 100%);
+        background-color: #ffffff !important;
         padding: 18px;
         border-radius: 14px;
         border-left: 5px solid #f59e0b;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         margin-bottom: 12px;
-        border-top: 1px solid #f1f5f9;
-        border-right: 1px solid #f1f5f9;
-        border-bottom: 1px solid #f1f5f9;
+        border-top: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
     }
+    
+    /* Tarjetas de Próximas Compensaciones */
     .card-compensacion {
-        background-color: #ffffff;
+        background-color: #ffffff !important;
         padding: 16px;
         border-radius: 12px;
         border-top: 4px solid #3b82f6;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         text-align: center;
         margin-bottom: 10px;
+        border-left: 1px solid #e2e8f0;
+        border-right: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0;
     }
-    /* Contenedor de Créditos Rediseñado para Legibilidad Absoluta */
+    
+    /* Contenedor Crítico de Resumen de Cartera (Filas 90-93) */
     .card-detalle-credito-nueva {
         background-color: #ffffff !important;
         padding: 24px;
         border-radius: 16px;
-        border: 1px solid #cbd5e1;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
     }
     .linea-credito {
         display: flex;
         justify-content: space-between;
         align-items: center;
         padding: 10px 0;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #e2e8f0 !important;
     }
     .linea-credito:last-child {
-        border-bottom: none;
+        border-bottom: none !important;
     }
     .lbl-credito {
-        color: #334155 !important;
+        color: #475569 !important;
         font-size: 0.95rem;
         font-weight: 600;
         text-transform: uppercase;
@@ -79,7 +98,7 @@ st.markdown("""
     }
     .fecha-kpi {
         font-size: 0.85rem;
-        color: #64748b;
+        color: #64748b !important;
         font-weight: 500;
         margin-top: -5px;
     }
@@ -108,11 +127,10 @@ def cargar_datos_desde_nube(url):
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
 # =====================================================================
-# 3. PROCESAMIENTO Y PARSING DE NÚMEROS (MEJORADO PARA LIQUIDAR LETRAS COMO K)
+# 3. PROCESAMIENTO Y PARSING DE NÚMEROS (BLINDADO CONTRA LETRAS COMO K)
 # =====================================================================
 def forzar_numero(val):
     try:
-        # Convertimos a string y eliminamos K, k, espacios y símbolos monetarios comunes
         s = str(val).strip().upper().replace("$", "").replace("%", "").replace("K", "").replace(" ", "")
         if not s:
             return 0.0
@@ -151,12 +169,10 @@ try:
 except:
     fecha_referencia = "Fecha no disponible"
 
-# Búsqueda robustecida de indicadores primarios
 total_cobrado_dia_anterior = obtener_valor_kpi(["COBRADO", "TOTAL COBRADO"]) 
 capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "TOTAL VENDIDO", "VENDIDO", "CAPITAL VENDIDO (K)"])
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
 
-# Disponibilidades de caja
 efectivo = obtener_valor_kpi(["EFECTIVO"])
 macro_fci = obtener_valor_kpi(["MACRO"])
 debito_suarez = obtener_valor_kpi(["SUAREZ", "DÉBITO"])
@@ -166,7 +182,7 @@ if 0 < morosidad_total < 1.0:
     morosidad_total = morosidad_total * 100.0
 
 # =====================================================================
-# JERARQUÍA 1 y 2: TOTAL COBRADO Y CAPITAL VENDIDO (LADO A LADO)
+# JERARQUÍA 1 y 2: TOTAL COBRADO Y CAPITAL VENDIDO
 # =====================================================================
 col_jer1, col_jer2 = st.columns(2)
 with col_jer1:
@@ -177,7 +193,7 @@ with col_jer2:
     st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + NUEVA VISUAL DE CRÉDITOS (FILAS 90-93)
+# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + RESUMEN CARTERA DE CRÉDITOS
 # =====================================================================
 st.markdown("---")
 col_mora, col_creditos = st.columns([1, 1])
@@ -187,11 +203,10 @@ with col_mora:
 
 with col_creditos:
     st.markdown("<div class='card-detalle-credito-nueva'>", unsafe_allow_html=True)
-    st.markdown("<span style='color: #1e293b; font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;'>💼 RESUMEN CARTERA DE CRÉDITOS</span>", unsafe_allow_html=True)
+    st.markdown("<span style='color: #0f172a; font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;'>💼 RESUMEN CARTERA DE CRÉDITOS</span>", unsafe_allow_html=True)
     st.markdown("<div style='margin-top: 12px; margin-bottom: 8px; border-top: 2px solid #3b82f6; width: 50px;'></div>", unsafe_allow_html=True)
     
     try:
-        # Extraemos dinámicamente las filas 90 a 93 (índices 89 a 92 en Pandas)
         for r_idx in range(89, 93):
             concepto = str(df_real.iloc[r_idx, 0]).strip()
             monto_raw = df_real.iloc[r_idx, 1]
@@ -203,8 +218,8 @@ with col_creditos:
                         <span class='val-credito'>$ {monto_num:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-    except Exception as e:
-        st.caption(f"No se pudieron renderizar las filas 90-93. Error: {e}")
+    except:
+        st.caption("No se pudieron leer las filas 90-93.")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =====================================================================
@@ -245,18 +260,18 @@ try:
             if item["fecha"] and item["monto"] > 0:
                 st.markdown(f"""
                     <div class='card-compensacion'>
-                        <span style='color:#4b5563; font-size:0.85rem; font-weight:700; text-transform:uppercase;'>⏳ {item['fecha']}</span><br>
+                        <span style='color:#475569; font-size:0.85rem; font-weight:700; text-transform:uppercase;'>⏳ {item['fecha']}</span><br>
                         <span style='font-size:1.4rem; font-weight:800; color:#1d4ed8;'>$ {item['monto']:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown("""
-                    <div class='card-compensacion' style='border-top-color: #e5e7eb;'>
-                        <span style='color:#9ca3af; font-size:0.85rem;'>Sin compensaciones programadas</span>
+                    <div class='card-compensacion' style='border-top-color: #cbd5e1;'>
+                        <span style='color:#64748b; font-size:0.85rem;'>Sin compensaciones programadas</span>
                     </div>
                 """, unsafe_allow_html=True)
 except Exception as e:
-    st.warning("⚠️ Nota: Ocurrió un inconveniente al cargar el rango de compensaciones.")
+    st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
 
 # =====================================================================
 # JERARQUÍA 6: PANEL DE PORCENTAJE DE MORA HISTÓRICA (DESDE FILA 11)
