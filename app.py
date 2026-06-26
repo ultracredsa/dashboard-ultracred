@@ -288,12 +288,17 @@ dic_meses = {
 registros_mora = []
 for idx, fila in df_real.iterrows():
     fila_str = " ".join(fila.astype(str)).upper()
+    
+    # Excluir filas que representan KPI globales
     if "MORA TOTAL" in fila_str or "% EN MORA" in fila_str:
         continue
+        
+    # Verificar si la fila corresponde a un mes comercial
     if any(m in fila_str for m in dic_meses.keys()):
         periodo = ""
         mes_num = 1
         anio_detectado = "2025"
+        
         for m, n in dic_meses.items():
             if m in fila_str:
                 if "2024" in fila_str: anio_detectado = "2024"
@@ -303,17 +308,28 @@ for idx, fila in df_real.iterrows():
                 periodo = f"{m} {anio_detectado}"
                 mes_num = n
                 break
+        
+        # CORRECCIÓN DE SEGURIDAD: Buscar un valor numérico coherente que actúe como porcentaje.
+        # En vez de romper el bucle ante cualquier número de derecha a izquierda, validamos candidatos reales.
+        val_final_mora = None
         for celda in reversed(fila):
+            celda_str = str(celda).strip()
+            if not celda_str: 
+                continue
+                
             num = forzar_numero(celda)
-            if num is not None and 0.0 < num < 100.0:
-                val_mora = num * 100.0 if num < 1.0 else num
-                registros_mora.append({
-                    "Período Comercial": periodo, 
-                    "% En Mora": val_mora,
-                    "Año": anio_detectado,
-                    "Orden_Fecha": int(anio_detectado) * 100 + mes_num
-                })
-                break
+            # Un porcentaje de mora razonable (ej: entre 0.01% y 95%)
+            if 0.0 < num < 100.0:
+                val_final_mora = num * 100.0 if num < 1.0 else num
+                break # Encontrado el valor de porcentaje más a la derecha válido
+                
+        if val_final_mora is not None:
+            registros_mora.append({
+                "Período Comercial": periodo, 
+                "% En Mora": val_final_mora,
+                "Año": anio_detectado,
+                "Orden_Fecha": int(anio_detectado) * 100 + mes_num
+            })
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
