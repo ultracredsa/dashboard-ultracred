@@ -39,6 +39,12 @@ st.markdown("""
         border-right: 1px solid #f1f5f9;
         border-bottom: 1px solid #f1f5f9;
     }
+    .fecha-kpi {
+        font-size: 0.85rem;
+        color: #64748b;
+        font-weight: 500;
+        margin-top: -5px;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -68,29 +74,21 @@ df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 # =====================================================================
 def forzar_numero(val):
     try:
-        # Convertir a texto y limpiar símbolos comunes
         s = str(val).strip().replace("$", "").replace("%", "").replace(" ", "")
         if not s:
             return None
         
-        # Caso A: Tiene comas (ej: 1.250,50 o 7,77) -> Formato clásico AR
         if "," in s:
             s = s.replace(".", "").replace(",", ".")
             return float(s)
         
-        # Caso B: No tiene comas pero contiene puntos (ej: 1.500.000 o 4.500)
         if "." in s:
-            # Si tiene más de un punto, son obligatoriamente separadores de miles
             if s.count(".") > 1:
                 s = s.replace(".", "")
             else:
-                # Si tiene un solo punto, verificamos si representa miles (3 dígitos después del punto)
                 partes = s.split(".")
                 if len(partes[1]) == 3:
                     s = s.replace(".", "")
-                else:
-                    # Es un decimal estándar estándar de Python (ej: 7.77)
-                    pass
                     
         return float(s)
     except:
@@ -100,7 +98,6 @@ def obtener_valor_kpi(lista_claves):
     for fila_idx, fila in df_real.iterrows():
         fila_texto = " ".join(fila.astype(str)).upper()
         if any(clave.upper() in fila_texto for clave in lista_claves):
-            # Recorremos de derecha a izquierda para capturar primero el saldo/total
             for celda in reversed(fila):
                 num = forzar_numero(celda)
                 if num is not None and num != 0.0:
@@ -108,8 +105,14 @@ def obtener_valor_kpi(lista_claves):
     return 0.0
 
 # =====================================================================
-# 4. EXTRACCIÓN DE DATOS Y TRAZABILIDAD
+# 4. EXTRACCIÓN DE DATOS DINÁMICOS
 # =====================================================================
+# Extracción de la celda B1 para la fecha (Fila index 0, Columna index 1 en Pandas)
+try:
+    fecha_referencia = str(df_real.iloc[0, 1]).strip()
+except:
+    fecha_referencia = "Fecha no disponible"
+
 total_cobrado_dia_anterior = obtener_valor_kpi(["COBRADO", "TOTAL COBRADO"]) 
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
 creditos_a_cobrar = obtener_valor_kpi(["COBRAR", "CRÉDITOS A COBRAR"])
@@ -119,7 +122,6 @@ macro_fci = obtener_valor_kpi(["MACRO"])
 debito_suarez = obtener_valor_kpi(["SUAREZ", "DÉBITO"])
 total_caja = obtener_valor_kpi(["TOTAL CAJA", "CAJA TOTAL"])
 
-# Ajuste si la morosidad viene expresada en formato de tasa (0.0777 en vez de 7.77)
 if 0 < morosidad_total < 1.0:
     morosidad_total = morosidad_total * 100.0
 
@@ -129,6 +131,8 @@ if 0 < morosidad_total < 1.0:
 col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
 with col_kpi1:
     st.metric(label="💰 Total Cobrado", value=f"$ {total_cobrado_dia_anterior:,.2f}")
+    # Renderizamos la fecha de la celda B1 justo abajo de la métrica
+    st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 with col_kpi2:
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
 with col_kpi3:
@@ -147,6 +151,29 @@ with col_caja3:
 with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
+# =====================================================================
+# NUEVO: SECCIÓN DE PRÓXIMAS COMPENSACIONES (FILAS 119 A 122)
+# =====================================================================
+st.markdown("---")
+st.subheader("📅 Próximas Compensaciones e Información Importante")
+
+try:
+    # En pandas las filas de Excel 119 a 122 corresponden a los índices 118 a 122 (el extremo final es exclusivo)
+    df_compensaciones = df_real.iloc[118:122].copy()
+    
+    # Limpiamos columnas que estén completamente vacías para que la tabla se vea impecable
+    df_compensaciones = df_compensaciones.loc[:, (df_compensaciones != "").any(axis=0)]
+    
+    if not df_compensaciones.empty:
+        st.dataframe(df_compensaciones, use_container_width=True, hide_index=True, header_setting="none")
+    else:
+        st.info("ℹ️ No se detectaron registros activos en el rango de compensaciones (Filas 119-122).")
+except Exception as e:
+    st.warning(f"⚠️ Nota: No se pudo renderizar el bloque de compensaciones del renglón 119-122. Verificá la extensión de la planilla.")
+
+# =====================================================================
+# 6. PORCENTAJE DE MORA POR MES-AÑO
+# =====================================================================
 st.markdown("---")
 st.subheader("🚨 PORCENTAJE DE MORA POR MES-AÑO")
 
@@ -170,7 +197,6 @@ for idx, fila in df_real.iterrows():
                 mes_num = n
                 break
         
-        # Leemos desde el final de la fila el porcentaje correspondiente a la mora
         for celda in reversed(fila):
             num = forzar_numero(celda)
             if num is not None and 0.0 < num < 100.0:
@@ -178,13 +204,12 @@ for idx, fila in df_real.iterrows():
                 registros_mora.append({
                     "Período Comercial": periodo, 
                     "% En Mora": val_mora,
-                    "Orden_Fecha": anio * 100 + mes_num  # Llave numérica de orden (ej: 202512)
+                    "Orden_Fecha": anio * 100 + mes_num
                 })
                 break
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
-    # Ordenar cronológicamente de forma estricta antes de renderizar
     df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
 
     filtro_mora = st.selectbox("🔍 Filtrar meses por nivel de criticidad en la mora:", 
@@ -200,7 +225,6 @@ if registros_mora:
         elif val > 10.0: return 'background-color: #fef3c7; color: #92400e;'
         return 'background-color: #e8f5e9; color: #1b5e20;'
 
-    # Limpieza visual de cara al usuario
     df_tabla_render = df_filtrado[["Período Comercial", "% En Mora"]]
     df_estilizado = (df_tabla_render.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
 
@@ -211,7 +235,7 @@ if registros_mora:
         st.line_chart(df_mora.set_index("Período Comercial")["% En Mora"])
 
 # =====================================================================
-# 6. REVISIÓN DE ESTRUCTURA REAL (SOLO PARA DIAGNÓSTICO)
+# 7. REVISIÓN DE ESTRUCTURA REAL (SOLO PARA DIAGNÓSTICO)
 # =====================================================================
 st.markdown("---")
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
