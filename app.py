@@ -57,15 +57,6 @@ st.markdown("""
         font-weight: 800 !important;
     }
     
-    /* Pequeño ajuste para las fechas debajo de las métricas */
-    .fecha-kpi {
-        margin-top: -2px;
-        margin-bottom: 2px;
-        font-size: 0.75rem;
-        color: #64748b !important;
-        font-weight: 500;
-    }
-    
     /* Bloque Especial de Créditos a Cobrar Compacto */
     .card-detalle-credito-nueva {
         background-color: #ffffff !important;
@@ -122,12 +113,8 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# TÍTULO ORIGINAL DE LA APP
-st.title("📈 Reporte UltraCred")
-st.caption("Conectado en tiempo real a Google Sheets (Nube)")
-
 # =====================================================================
-# 2. VINCULACIÓN CON LA NUBE
+# 2. VINCULACIÓN CON LA NUBE Y CARGA INICIAL
 # =====================================================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
@@ -142,6 +129,16 @@ def cargar_datos_desde_nube(url):
         st.stop()
 
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
+
+# Extracción inmediata de la fecha de referencia para el título superior
+try:
+    fecha_referencia = str(df_real.iloc[0, 1]).strip()
+except:
+    fecha_referencia = "Fecha no disponible"
+
+# TÍTULO DE LA APP CON FECHA INTEGRADA AL LADO
+st.markdown(f"<h1>📈 Reporte UltraCred <span style='font-size: 1.3rem; color: #64748b; font-weight: 500; margin-left: 10px;'>({fecha_referencia})</span></h1>", unsafe_allow_html=True)
+st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 
 # =====================================================================
 # 3. PROCESAMIENTO DE NÚMEROS
@@ -177,11 +174,6 @@ def obtener_valor_kpi(lista_claves):
 # =====================================================================
 # 4. EXTRACCIÓN MAESTRA DE DATOS
 # =====================================================================
-try:
-    fecha_referencia = str(df_real.iloc[0, 1]).strip()
-except:
-    fecha_referencia = "Fecha no disponible"
-
 try: capital_vendido = forzar_numero(df_real.iloc[1, 1])
 except: capital_vendido = 0.0
 if capital_vendido == 0.0:
@@ -216,13 +208,10 @@ except:
 col_v, col_c, col_i = st.columns(3)
 with col_v:
     st.metric(label="📉 Capital Vendido (K)", value=f"$ {capital_vendido:,.2f}")
-    st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 with col_c:
     st.metric(label="💰 Total Cobrado", value=f"$ {total_cobrado_dia_anterior:,.2f}")
-    st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 with col_i:
     st.metric(label="🤝 Intereses Convenios", value=f"$ {intereses_convenios:,.2f}")
-    st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 
 # =====================================================================
 # JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + RESUMEN CARTERA DE CRÉDITOS
@@ -249,7 +238,7 @@ with col_creditos:
     """, unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 4: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA (TÍTULO ORIGINAL RESTAURADO)
+# JERARQUÍA 4: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA
 # =====================================================================
 st.subheader("🏦 Composición y Disponibilidad de Caja")
 
@@ -264,7 +253,7 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.2rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (TÍTULO ORIGINAL RESTAURADO)
+# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES
 # =====================================================================
 st.subheader("📅 Próximas Compensaciones")
 
@@ -287,7 +276,7 @@ except:
     st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
 
 # =====================================================================
-# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (TÍTULO ORIGINAL RESTAURADO)
+# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA
 # =====================================================================
 st.subheader("🚨 Panel de Control de Mora Histórica")
 
@@ -371,7 +360,7 @@ else:
     st.warning("⚠️ No se encontraron meses históricos con porcentajes de mora válidos.")
 
 # =====================================================================
-# 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO) (TÍTULO ORIGINAL RESTAURADO)
+# 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO)
 # =====================================================================
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
     st.dataframe(df_real)
