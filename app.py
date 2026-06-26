@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px  # Nueva librería para el gráfico interactivo profesional
 
 # =====================================================================
 # 1. CONFIGURACIÓN VISUAL: DISEÑO DE ALTO CONTRASTE INSTITUTIONAL COMPACTO
@@ -275,7 +274,7 @@ except:
     st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
 
 # =====================================================================
-# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (CRONOLÓGICO PLOTLY)
+# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (CRONOLÓGICO SEGURO)
 # =====================================================================
 st.subheader("🚨 Panel de Control de Mora Histórica")
 
@@ -322,7 +321,7 @@ except Exception as e:
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
-    # ORDENAMIENTO CRUCIAL: Ordenamos de forma permanente el DataFrame por su clave de fecha real
+    # 1. ORDENADO CRONOLÓGICO: Forzamos el orden por año y mes numérico
     df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
 
     lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
@@ -354,37 +353,16 @@ if registros_mora:
     df_tabla_render = df_filtrado[["Período Comercial", "% En Mora"]]
     df_estilizado = (df_tabla_render.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
 
-    col_tabla, col_grafico = st.columns([4, 6])
+    col_tabla, col_grafico = st.columns([4, 5])
     with col_tabla:
         st.dataframe(df_estilizado, use_container_width=True, hide_index=True)
         
     with col_grafico:
         if not df_filtrado.empty:
-            # GRÁFICO MEJORADO: Usamos Plotly Express para garantizar que respete el orden estricto de las filas
-            fig = px.line(
-                df_filtrado, 
-                x="Período Comercial", 
-                y="% En Mora",
-                title="Evolución Temporal de la Mora",
-                markers=True  # Añade puntos en cada mes para que sea más fácil de leer
-            )
-            
-            # Forzamos a Plotly a NO ordenar el eje X alfabéticamente (mantiene el orden del dataframe)
-            fig.update_xaxes(type='category', categoryorder='trace', tickangle=45)
-            
-            # Estilización premium para que combine con tu diseño oscuro/claro
-            fig.update_layout(
-                margin=dict(l=20, r=20, t=40, b=20),
-                height=380,
-                hovermode="x unified",
-                xaxis_title="Línea de Tiempo",
-                yaxis_title="% Morosidad",
-                plot_bgcolor="rgba(0,0,0,0)",
-                paper_bgcolor="rgba(0,0,0,0)"
-            )
-            fig.update_traces(line_color="#3b82f6", line_width=2.5)
-            
-            st.plotly_chart(fig, use_container_width=True)
+            # 2. TRUCO DE RE-ORDENAMIENTO: Definimos el Período Comercial como índice
+            # del DataFrame filtrado. Al graficar, Streamlit usará este orden estricto de izquierda a derecha.
+            df_grafico = df_filtrado.set_index("Período Comercial")[["% En Mora"]]
+            st.line_chart(df_grafico, height=350)
         else:
             st.info("No hay registros coincidentes para el filtro seleccionado.")
 else:
