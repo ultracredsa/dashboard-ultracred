@@ -2,24 +2,23 @@ import streamlit as st
 import pandas as pd
 
 # =====================================================================
-# 1. CONFIGURACIÓN VISUAL: FONDO CLARO (NO BLANCO) Y ALTO CONTRASTE
+# 1. CONFIGURACIÓN VISUAL: FONDO CLARO INSTITUCIONAL Y ALTO CONTRASTE
 # =====================================================================
 st.set_page_config(page_title="UltraCred - Dashboard de Cobranzas", page_icon="📈", layout="wide")
 
-# Forzamos fondo claro (#f0f2f5) y colores oscuros para el texto
 st.markdown("""
     <style>
-    /* Fondo general de la app (Gris claro, no blanco) */
+    /* Fondo general de la app (Gris claro premium, no blanco para descanso visual) */
     .main, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: #f0f2f5 !important;
     }
     
-    /* Títulos principales */
-    h1, h2, h3, h4, h5, h6, .stText, p, span {
+    /* Forzar color de textos principales */
+    h1, h2, h3, h4, h5, h6, .stText, p, span, label {
         color: #1e293b !important;
     }
     
-    /* Tarjetas de Métricas (st.metric) */
+    /* Tarjetas de Métricas Estándar (st.metric) */
     div[data-testid="stMetric"] {
         background-color: #ffffff !important;
         padding: 22px;
@@ -38,6 +37,36 @@ st.markdown("""
         color: #0f172a !important;
         font-size: 2rem !important;
         font-weight: 800 !important;
+    }
+    
+    /* Bloque Especial de Créditos a Cobrar (Métrica + Lista) */
+    .card-detalle-credito-nueva {
+        background-color: #ffffff !important;
+        padding: 22px;
+        border-radius: 16px;
+        border: 1px solid #cbd5e1 !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .linea-credito {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #e2e8f0 !important;
+    }
+    .linea-credito:last-child {
+        border-bottom: none !important;
+    }
+    .lbl-credito {
+        color: #475569 !important;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .val-credito {
+        color: #0f172a !important;
+        font-size: 1.1rem;
+        font-weight: 800;
     }
     
     /* Tarjetas de Disponibilidad de Caja */
@@ -65,36 +94,6 @@ st.markdown("""
         border-left: 1px solid #e2e8f0;
         border-right: 1px solid #e2e8f0;
         border-bottom: 1px solid #e2e8f0;
-    }
-    
-    /* Contenedor Crítico de Resumen de Cartera (Filas 90-93) */
-    .card-detalle-credito-nueva {
-        background-color: #ffffff !important;
-        padding: 24px;
-        border-radius: 16px;
-        border: 1px solid #cbd5e1 !important;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-    }
-    .linea-credito {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 10px 0;
-        border-bottom: 1px solid #e2e8f0 !important;
-    }
-    .linea-credito:last-child {
-        border-bottom: none !important;
-    }
-    .lbl-credito {
-        color: #475569 !important;
-        font-size: 0.95rem;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-    .val-credito {
-        color: #0f172a !important;
-        font-size: 1.1rem;
-        font-weight: 800;
     }
     .fecha-kpi {
         font-size: 0.85rem;
@@ -127,26 +126,36 @@ def cargar_datos_desde_nube(url):
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
 # =====================================================================
-# 3. PROCESAMIENTO Y PARSING DE NÚMEROS (BLINDADO CONTRA LETRAS COMO K)
+# 3. PROCESAMIENTO MULTIREGIONAL DE NÚMEROS (ELIMINA ERRORES DE $0.00)
 # =====================================================================
 def forzar_numero(val):
+    if not val:
+        return 0.0
+    s = str(val).strip().upper().replace("$", "").replace("%", "").replace("K", "").replace(" ", "")
+    if not s:
+        return 0.0
     try:
-        s = str(val).strip().upper().replace("$", "").replace("%", "").replace("K", "").replace(" ", "")
-        if not s:
-            return 0.0
-        
-        if "," in s:
-            s = s.replace(".", "").replace(",", ".")
-            return float(s)
-        
-        if "." in s:
+        if "," in s and "." in s:
+            if s.rfind(",") > s.rfind("."):
+                s = s.replace(".", "").replace(",", ".")
+            else:
+                s = s.replace(",", "")
+        elif "," in s:
+            if s.count(",") == 1:
+                partes = s.split(",")
+                if len(partes[1]) <= 2:
+                    s = s.replace(",", ".")
+                else:
+                    s = s.replace(",", "")
+            else:
+                s = s.replace(",", "")
+        elif "." in s:
             if s.count(".") > 1:
                 s = s.replace(".", "")
             else:
                 partes = s.split(".")
                 if len(partes[1]) == 3:
                     s = s.replace(".", "")
-                    
         return float(s)
     except:
         return 0.0
@@ -155,14 +164,17 @@ def obtener_valor_kpi(lista_claves):
     for fila_idx, fila in df_real.iterrows():
         fila_texto = " ".join(fila.astype(str)).upper()
         if any(clave.upper() in fila_texto for clave in lista_claves):
-            for celda in reversed(fila):
+            for celda in fila:
+                celda_str = str(celda).strip().upper()
+                if any(clave.upper() in celda_str for clave in lista_claves):
+                    continue
                 num = forzar_numero(celda)
-                if num is not None and num != 0.0:
+                if num != 0.0:
                     return num
     return 0.0
 
 # =====================================================================
-# 4. EXTRACCIÓN DE DATOS DINÁMICOS
+# 4. EXTRACCIÓN DE DATOS
 # =====================================================================
 try:
     fecha_referencia = str(df_real.iloc[0, 1]).strip()
@@ -170,7 +182,7 @@ except:
     fecha_referencia = "Fecha no disponible"
 
 total_cobrado_dia_anterior = obtener_valor_kpi(["COBRADO", "TOTAL COBRADO"]) 
-capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "TOTAL VENDIDO", "VENDIDO", "CAPITAL VENDIDO (K)"])
+capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "TOTAL VENDIDO", "VENDIDO"])
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
 
 efectivo = obtener_valor_kpi(["EFECTIVO"])
@@ -180,6 +192,20 @@ total_caja = obtener_valor_kpi(["TOTAL CAJA", "CAJA TOTAL"])
 
 if 0 < morosidad_total < 1.0:
     morosidad_total = morosidad_total * 100.0
+
+# Extracción específica de Filas 90-93 para Cartera de Créditos
+try:
+    monto_vencido_lbl = str(df_real.iloc[90, 0]).strip() # Fila 91
+    monto_vencido_val = forzar_numero(df_real.iloc[90, 1])
+    
+    cobrado_lbl = str(df_real.iloc[91, 0]).strip()       # Fila 92
+    cobrado_val = forzar_numero(df_real.iloc[91, 1])
+    
+    monto_total_a_cobrar_val = forzar_numero(df_real.iloc[92, 1]) # Fila 93 (Total a cobrar)
+except:
+    monto_vencido_lbl, monto_vencido_val = "MONTO VENCIDO", 0.0
+    cobrado_lbl, cobrado_val = "COBRADO", 0.0
+    monto_total_a_cobrar_val = 0.0
 
 # =====================================================================
 # JERARQUÍA 1 y 2: TOTAL COBRADO Y CAPITAL VENDIDO
@@ -202,25 +228,23 @@ with col_mora:
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
 
 with col_creditos:
-    st.markdown("<div class='card-detalle-credito-nueva'>", unsafe_allow_html=True)
-    st.markdown("<span style='color: #0f172a; font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;'>💼 RESUMEN CARTERA DE CRÉDITOS</span>", unsafe_allow_html=True)
-    st.markdown("<div style='margin-top: 12px; margin-bottom: 8px; border-top: 2px solid #3b82f6; width: 50px;'></div>", unsafe_allow_html=True)
-    
-    try:
-        for r_idx in range(89, 93):
-            concepto = str(df_real.iloc[r_idx, 0]).strip()
-            monto_raw = df_real.iloc[r_idx, 1]
-            monto_num = forzar_numero(monto_raw)
-            if concepto:
-                st.markdown(f"""
-                    <div class='linea-credito'>
-                        <span class='lbl-credito'>🔹 {concepto}</span>
-                        <span class='val-credito'>$ {monto_num:,.2f}</span>
-                    </div>
-                """, unsafe_allow_html=True)
-    except:
-        st.caption("No se pudieron leer las filas 90-93.")
-    st.markdown("</div>", unsafe_allow_html=True)
+    # Renderizado exacto solicitado: Total en bloque blanco, abajo solo 2 ítems desglosados
+    st.markdown(f"""
+        <div class='card-detalle-credito-nueva'>
+            <label style='color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.8rem;'>💼 MONTO TOTAL A COBRAR</label>
+            <div style='color: #0f172a; font-size: 2rem; font-weight: 800; margin-top: 5px; margin-bottom: 15px;'>$ {monto_total_a_cobrar_val:,.2f}</div>
+            <div style='border-top: 1px solid #e2e8f0; padding-top: 5px;'>
+                <div class='linea-credito'>
+                    <span class='lbl-credito'>🔹 {monto_vencido_lbl}</span>
+                    <span class='val-credito'>$ {monto_vencido_val:,.2f}</span>
+                </div>
+                <div class='linea-credito'>
+                    <span class='lbl-credito'>🔹 {cobrado_lbl}</span>
+                    <span class='val-credito'>$ {cobrado_val:,.2f}</span>
+                </div>
+            </div>
+        </div>
+    """, unsafe_allow_html=True)
 
 # =====================================================================
 # JERARQUÍA 4: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA
