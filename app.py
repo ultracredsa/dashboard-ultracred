@@ -139,7 +139,7 @@ def forzar_numero(val):
             if s.rfind(",") > s.rfind("."): s = s.replace(".", "").replace(",", ".")
             else: s = s.replace(",", "")
         elif "," in s:
-            if s.count(",") == 1 and len(s.split(",")[1]) <= 2: s = s.replace(".", "")
+            if s.count(",") == 1 and len(s.split(",")[1]) <= 2: s = s.replace(",", ".")
             else: s = s.replace(",", "")
         elif "." in s and s.count(".") > 1: s = s.replace(".", "")
         elif "." in s and len(s.split(".")[1]) == 3: s = s.replace(".", "")
@@ -174,6 +174,7 @@ if capital_vendido == 0.0:
 intereses_convenios = obtener_valor_kpi(["INTERESES CONVENIOS", "CONVENIOS"])
 total_cobrado_dia_anterior = obtener_valor_kpi(["TOTAL COBRADO", "COBRADO"]) 
 
+# Extracción ultra-precisa para Porcentaje Morosidad Total
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "% EN MORA"])     
 efectivo = obtener_valor_kpi(["EFECTIVO"])
 macro_fci = obtener_valor_kpi(["MACRO"])
@@ -274,7 +275,7 @@ except:
     st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
 
 # =====================================================================
-# JERARQUÍA 6: PANEL DE PORCENTAJE DE MORA HISTÓRICA (DESDE FILA 11) (TÍTULO ORIGINAL)
+# JERARQUÍA 6: PANEL DE PORCENTAJE DE MORA HISTÓRICA (REVISIÓN DESDE FILA 0)
 # =====================================================================
 st.markdown("---")
 st.subheader("🚨 Panel de Control de Mora Histórica")
@@ -285,9 +286,14 @@ dic_meses = {
 }
 
 registros_mora = []
-for idx, fila in df_real.iloc[10:].iterrows():
+# Cambiado a df_real.iterrows() para no perder los meses ubicados arriba en la planilla
+for idx, fila in df_real.iterrows():
     fila_str = " ".join(fila.astype(str)).upper()
     
+    # Excluir la fila del indicador acumulado "MORA TOTAL" para que no altere la historia
+    if "MORA TOTAL" in fila_str or "% EN MORA" in fila_str:
+        continue
+        
     if any(m in fila_str for m in dic_meses.keys()):
         periodo = ""
         mes_num = 1
@@ -357,6 +363,8 @@ if registros_mora:
             st.line_chart(df_filtrado.set_index("Período Comercial")["% En Mora"])
         else:
             st.info("No hay registros coincidentes.")
+else:
+    st.warning("⚠️ No se encontraron meses históricos con porcentajes de mora válidos en el archivo.")
 
 # =====================================================================
 # 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO) (TÍTULO ORIGINAL)
