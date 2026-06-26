@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 
 # =====================================================================
-# 1. CONFIGURACIÓN VISUAL DASHBOARD PROFESIONAL
+# 1. CONFIGURACIÓN VISUAL DASHBOARD PROFESIONAL (ALTO CONTRASTE)
 # =====================================================================
 st.set_page_config(page_title="UltraCred - Dashboard de Cobranzas", page_icon="📈", layout="wide")
 
@@ -17,7 +17,7 @@ st.markdown("""
         border: 1px solid #e2e8f0;
     }
     div[data-testid="stMetric"] label {
-        color: #64748b !important;
+        color: #475569 !important;
         font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -48,12 +48,34 @@ st.markdown("""
         text-align: center;
         margin-bottom: 10px;
     }
-    .card-detalle-credito {
-        background-color: #ffffff;
-        padding: 20px;
+    /* Contenedor de Créditos Rediseñado para Legibilidad Absoluta */
+    .card-detalle-credito-nueva {
+        background-color: #ffffff !important;
+        padding: 24px;
         border-radius: 16px;
-        border: 1px solid #e2e8f0;
+        border: 1px solid #cbd5e1;
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    }
+    .linea-credito {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .linea-credito:last-child {
+        border-bottom: none;
+    }
+    .lbl-credito {
+        color: #334155 !important;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .val-credito {
+        color: #0f172a !important;
+        font-size: 1.1rem;
+        font-weight: 800;
     }
     .fecha-kpi {
         font-size: 0.85rem;
@@ -64,7 +86,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Cambio de Título Solicitado
 st.title("📈 Reporte UltraCred")
 st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 st.markdown("---")
@@ -87,11 +108,12 @@ def cargar_datos_desde_nube(url):
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
 # =====================================================================
-# 3. PROCESAMIENTO Y PARSING DE NÚMEROS (BLINDADO REGIONAL ARGENTINA)
+# 3. PROCESAMIENTO Y PARSING DE NÚMEROS (MEJORADO PARA LIQUIDAR LETRAS COMO K)
 # =====================================================================
 def forzar_numero(val):
     try:
-        s = str(val).strip().replace("$", "").replace("%", "").replace(" ", "")
+        # Convertimos a string y eliminamos K, k, espacios y símbolos monetarios comunes
+        s = str(val).strip().upper().replace("$", "").replace("%", "").replace("K", "").replace(" ", "")
         if not s:
             return 0.0
         
@@ -129,12 +151,12 @@ try:
 except:
     fecha_referencia = "Fecha no disponible"
 
-# KPIs principales
+# Búsqueda robustecida de indicadores primarios
 total_cobrado_dia_anterior = obtener_valor_kpi(["COBRADO", "TOTAL COBRADO"]) 
-capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "TOTAL VENDIDO", "CAPITAL VENDIDO (K)"])
+capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "TOTAL VENDIDO", "VENDIDO", "CAPITAL VENDIDO (K)"])
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
 
-# Composición de Caja
+# Disponibilidades de caja
 efectivo = obtener_valor_kpi(["EFECTIVO"])
 macro_fci = obtener_valor_kpi(["MACRO"])
 debito_suarez = obtener_valor_kpi(["SUAREZ", "DÉBITO"])
@@ -155,7 +177,7 @@ with col_jer2:
     st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + CRÉDITOS A COBRAR DETALLADO
+# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + NUEVA VISUAL DE CRÉDITOS (FILAS 90-93)
 # =====================================================================
 st.markdown("---")
 col_mora, col_creditos = st.columns([1, 1])
@@ -164,24 +186,25 @@ with col_mora:
     st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
 
 with col_creditos:
-    st.markdown("<div class='card-detalle-credito'>", unsafe_allow_html=True)
-    st.markdown("<span style='color: #64748b; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;'>💼 Estado de Créditos a Cobrar (Filas 90-93)</span>", unsafe_allow_html=True)
-    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='card-detalle-credito-nueva'>", unsafe_allow_html=True)
+    st.markdown("<span style='color: #1e293b; font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px;'>💼 RESUMEN CARTERA DE CRÉDITOS</span>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 12px; margin-bottom: 8px; border-top: 2px solid #3b82f6; width: 50px;'></div>", unsafe_allow_html=True)
+    
     try:
-        # Extraemos dinámicamente las filas 90 a 93 (índices 89 a 93 en Pandas)
+        # Extraemos dinámicamente las filas 90 a 93 (índices 89 a 92 en Pandas)
         for r_idx in range(89, 93):
             concepto = str(df_real.iloc[r_idx, 0]).strip()
             monto_raw = df_real.iloc[r_idx, 1]
             monto_num = forzar_numero(monto_raw)
             if concepto:
                 st.markdown(f"""
-                    <div style='display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed #f1f5f9;'>
-                        <span style='color: #475569; font-size: 0.95rem; font-weight: 500;'>{concepto}</span>
-                        <span style='color: #0f172a; font-size: 0.95rem; font-weight: 700;'>$ {monto_num:,.2f}</span>
+                    <div class='linea-credito'>
+                        <span class='lbl-credito'>🔹 {concepto}</span>
+                        <span class='val-credito'>$ {monto_num:,.2f}</span>
                     </div>
                 """, unsafe_allow_html=True)
-    except:
-        st.caption("No se pudieron leer las filas 90-93 de créditos.")
+    except Exception as e:
+        st.caption(f"No se pudieron renderizar las filas 90-93. Error: {e}")
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =====================================================================
@@ -192,13 +215,13 @@ st.subheader("🏦 Composición y Disponibilidad de Caja")
 col_caja1, col_caja2, col_caja3, col_caja4 = st.columns(4)
 
 with col_caja1:
-    st.markdown(f"<div class='card-caja' style='border-left-color: #10b981;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>💵 EFECTIVO</span><br><span style='font-size:1.5rem; font-weight:800; color:#059669;'>$ {efectivo:,.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-caja' style='border-left-color: #10b981;'><span style='color:#475569; font-size:0.85rem; font-weight:700;'>💵 EFECTIVO</span><br><span style='font-size:1.5rem; font-weight:800; color:#059669;'>$ {efectivo:,.2f}</span></div>", unsafe_allow_html=True)
 with col_caja2:
-    st.markdown(f"<div class='card-caja' style='border-left-color: #3b82f6;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>🏛️ BANCOS (MACRO + FCI)</span><br><span style='font-size:1.5rem; font-weight:800; color:#2563eb;'>$ {macro_fci:,.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-caja' style='border-left-color: #3b82f6;'><span style='color:#475569; font-size:0.85rem; font-weight:700;'>🏛️ BANCOS (MACRO + FCI)</span><br><span style='font-size:1.5rem; font-weight:800; color:#2563eb;'>$ {macro_fci:,.2f}</span></div>", unsafe_allow_html=True)
 with col_caja3:
-    st.markdown(f"<div class='card-caja' style='border-left-color: #8b5cf6;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>💳 DÉBITO + CNEL. SUAREZ</span><br><span style='font-size:1.5rem; font-weight:800; color:#7c3aed;'>$ {debito_suarez:,.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-caja' style='border-left-color: #8b5cf6;'><span style='color:#475569; font-size:0.85rem; font-weight:700;'>💳 DÉBITO + CNEL. SUAREZ</span><br><span style='font-size:1.5rem; font-weight:800; color:#7c3aed;'>$ {debito_suarez:,.2f}</span></div>", unsafe_allow_html=True)
 with col_caja4:
-    st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#64748b; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.85rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.5rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 # =====================================================================
 # JERARQUÍA 5: PRÓXIMAS COMPENSACIONES
@@ -247,17 +270,14 @@ dic_meses = {
 }
 
 registros_mora = []
-# Leemos de manera segura todo el histórico desde la fila 11 (índice 10 en adelante)
 for idx, fila in df_real.iloc[10:].iterrows():
     fila_str = " ".join(fila.astype(str)).upper()
     
-    # Buscamos patrones de meses y años dentro del texto de la fila completa
     if any(m in fila_str for m in dic_meses.keys()):
         periodo = ""
         mes_num = 1
         anio_detectado = "2025"
         
-        # Encontrar qué año y mes corresponden
         for m, n in dic_meses.items():
             if m in fila_str:
                 if "2024" in fila_str: anio_detectado = "2024"
@@ -269,7 +289,6 @@ for idx, fila in df_real.iloc[10:].iterrows():
                 mes_num = n
                 break
         
-        # Obtenemos la métrica numérica de morosidad buscando desde atrás
         for celda in reversed(fila):
             num = forzar_numero(celda)
             if num is not None and 0.0 < num < 100.0:
@@ -286,10 +305,8 @@ if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
     df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
 
-    # Obtenemos la lista única de años detectados para armar el filtro dinámico
     lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
 
-    # Controles de filtros paralelos
     col_filtro1, col_filtro2 = st.columns(2)
     with col_filtro1:
         filtro_anio = st.selectbox("📅 Filtrar por Año Comercial:", lista_anios)
@@ -297,13 +314,11 @@ if registros_mora:
         filtro_mora = st.selectbox("🔍 Filtrar por Nivel de Criticidad:", 
                                    ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
 
-    # Aplicar Filtro 1: Año
     if filtro_anio != "Todos los años":
         df_filtrado = df_mora[df_mora["Año"] == filtro_anio]
     else:
         df_filtrado = df_mora
 
-    # Aplicar Filtro 2: Criticidad
     if filtro_mora == "Mora Crítica (Mayor a 12%)": 
         df_filtrado = df_filtrado[df_filtrado["% En Mora"] > 12.0]
     elif filtro_mora == "Mora Alerta (10% a 12%)": 
@@ -326,12 +341,11 @@ if registros_mora:
         if not df_filtrado.empty:
             st.line_chart(df_filtrado.set_index("Período Comercial")["% En Mora"])
         else:
-            st.info("No hay registros coincidentes para los filtros seleccionados.")
+            st.info("No hay registros coincidentes.")
 
 # =====================================================================
-# 7. REVISIÓN DE ESTRUCTURA REAL (SOLO PARA DIAGNÓSTICO)
+# 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO)
 # =====================================================================
 st.markdown("---")
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
-    st.write("Acá abajo podés ver exactamente la matriz de datos que viene desde tu Google Sheets:")
     st.dataframe(df_real)
