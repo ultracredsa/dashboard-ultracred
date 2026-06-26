@@ -321,7 +321,6 @@ except Exception as e:
 
 if registros_mora:
     df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
-    # 1. ORDENADO CRONOLÓGICO: Forzamos el orden por año y mes numérico
     df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
 
     lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
@@ -359,9 +358,13 @@ if registros_mora:
         
     with col_grafico:
         if not df_filtrado.empty:
-            # 2. TRUCO DE RE-ORDENAMIENTO: Definimos el Período Comercial como índice
-            # del DataFrame filtrado. Al graficar, Streamlit usará este orden estricto de izquierda a derecha.
-            df_grafico = df_filtrado.set_index("Período Comercial")[["% En Mora"]]
+            # 🌟 SOLUCIÓN DEFINITIVA: Convertimos el Orden_Fecha (YYYYMM) a una Fecha Real reconocible por Streamlit
+            df_grafico = df_filtrado.copy()
+            df_grafico["Fecha_Real"] = pd.to_datetime(df_grafico["Orden_Fecha"].astype(str) + "01", format="%Y%m%d")
+            
+            # Pasamos la Fecha_Real como el índice del gráfico para forzar la escala temporal nativa
+            df_grafico = df_grafico.set_index("Fecha_Real")[["% En Mora"]]
+            
             st.line_chart(df_grafico, height=350)
         else:
             st.info("No hay registros coincidentes para el filtro seleccionado.")
