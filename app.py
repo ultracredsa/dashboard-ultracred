@@ -174,7 +174,7 @@ def obtener_valor_kpi(lista_claves):
     return 0.0
 
 # =====================================================================
-# 4. EXTRACCIÓN DE DATOS CON DOBLE VERIFICACIÓN
+# 4. EXTRACCIÓN DE DATOS CON DOBLE VERIFICACIÓN (MÉTODO ULTRA-ROBUSTO)
 # =====================================================================
 try:
     fecha_referencia = str(df_real.iloc[0, 1]).strip()
@@ -183,22 +183,15 @@ except:
 
 total_cobrado_dia_anterior = obtener_valor_kpi(["TOTAL COBRADO", "COBRADO"]) 
 
-# Intento de extracción por texto para Capital Vendido
-capital_vendido = obtener_valor_kpi(["CAPITAL VENDIDO", "VENDIDO", "CAPITAL VENDIDO (K)"])
-# Respaldo por posición si el rastreo de texto falla (asumiendo proximidad a la cabecera)
+# 1º Extracción directa por coordenada exacta fija (Celda B2 / Fila 2 de tu Excel)
+try:
+    capital_vendido = forzar_numero(df_real.iloc[1, 1])
+except:
+    capital_vendido = 0.0
+
+# 2º Si la coordenada falló o leyó vacío, buscamos por las palabras clave actualizadas de tu Excel
 if capital_vendido == 0.0:
-    try:
-        for idx, f in df_real.iterrows():
-            texto_linea = " ".join(f.astype(str)).upper()
-            if "CAPITAL" in texto_linea or "VENDIDO" in texto_linea:
-                for c in f:
-                    val_posible = forzar_numero(c)
-                    if val_posible > 0.0:
-                        capital_vendido = val_posible
-                        break
-            if capital_vendido > 0.0: break
-    except:
-        pass
+    capital_vendido = obtener_valor_kpi(["VENTA (K)", "VENTA", "VENTA (K) DEL DÍA", "CAPITAL VENDIDO"])
 
 morosidad_total = obtener_valor_kpi(["MORA TOTAL", "MOROSIDAD ACUMULADA", "% EN MORA"])     
 
