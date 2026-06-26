@@ -276,38 +276,42 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.2rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (DINÁMICAS POR TEXTO/POSICIÓN RELATIVA)
+# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (CORREGIDO DINÁMICO POR TEXTO REAl)
 # =====================================================================
 st.subheader("📅 Próximas Compensaciones")
 
 try:
-    # Localizamos dinámicamente la fila donde empiezan las compensaciones buscando la palabra clave
-    idx_inicio_comp = None
+    # Filtramos dinámicamente todas las filas que contengan de verdad la etiqueta de compensación semanal
+    comp_datos = []
     for idx, fila in df_real.iterrows():
-        if "COMPENSACIONES" in str(fila.iloc[0]).upper() or "PRÓXIMAS COMPENSACIONES" in str(fila.iloc[0]).upper():
-            idx_inicio_comp = idx + 1
-            break
-            
-    # Si no la encuentra por texto, usa la posición estimada de resguardo (118)
-    if idx_inicio_comp is None:
-        idx_inicio_comp = 118
+        celda_a_str = str(fila.iloc[0]).strip().upper()
+        # Busca específicamente las filas del cronograma semanal del Excel
+        if "COMPENSACIÓN" in celda_a_str and ("TOTAL" not in celda_a_str):
+            comp_datos.append({
+                "fecha": str(fila.iloc[0]).strip().replace("*", ""), # Limpiamos el asterisco para que quede estético
+                "monto": forzar_numero(fila.iloc[1])
+            })
+            if len(comp_datos) == 4: # Nos aseguramos de traer las 4 semanas vigentes
+                break
 
-    comp_datos = [
-        {"fecha": str(df_real.iloc[idx_inicio_comp, 0]).strip(), "monto": forzar_numero(df_real.iloc[idx_inicio_comp, 1])},
-        {"fecha": str(df_real.iloc[idx_inicio_comp+1, 0]).strip(), "monto": forzar_numero(df_real.iloc[idx_inicio_comp+1, 1])},
-        {"fecha": str(df_real.iloc[idx_inicio_comp+2, 0]).strip(), "monto": forzar_numero(df_real.iloc[idx_inicio_comp+2, 1])},
-        {"fecha": str(df_real.iloc[idx_inicio_comp+3, 0]).strip(), "monto": forzar_numero(df_real.iloc[idx_inicio_comp+3, 1])},
-    ]
+    # Renderizado en las 4 columnas
     col_comp1, col_comp2, col_comp3, col_comp4 = st.columns(4)
     columnas_lista = [col_comp1, col_comp2, col_comp3, col_comp4]
-    for i, item in enumerate(comp_datos):
+    
+    for i in range(4):
         with columnas_lista[i]:
-            if item["fecha"] and item["monto"] > 0:
-                st.markdown(f"<div class='card-compensacion'> <span style='color:#475569; font-size:0.75rem; font-weight:700; text-transform:uppercase;'>⏳ {item['fecha']}</span><br><span style='font-size:1.1rem; font-weight:800; color:#1d4ed8;'>$ {item['monto']:,.2f}</span></div>", unsafe_allow_html=True)
+            if i < len(comp_datos) and comp_datos[i]["monto"] > 0:
+                item = comp_datos[i]
+                st.markdown(f"""
+                    <div class='card-compensacion'> 
+                        <span style='color:#475569; font-size:0.75rem; font-weight:700; text-transform:uppercase;'>⏳ {item['fecha']}</span><br>
+                        <span style='font-size:1.1rem; font-weight:800; color:#1d4ed8;'>$ {item['monto']:,.2f}</span>
+                    </div>
+                """, unsafe_allow_html=True)
             else:
                 st.markdown("<div class='card-compensacion' style='border-top-color: #cbd5e1; padding: 6px;'><span style='color:#64748b; font-size:0.75rem;'>Sin compensaciones</span></div>", unsafe_allow_html=True)
-except:
-    st.warning("⚠️ Nota: Inconveniente al cargar compensaciones de forma dinámica.")
+except Exception as e:
+    st.warning(f"⚠️ Nota: Inconveniente al cargar compensaciones dinámicas: {e}")
 
 # =====================================================================
 # JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (CRONOLÓGICO SEGURO)
