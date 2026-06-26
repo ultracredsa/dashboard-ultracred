@@ -15,28 +15,25 @@ st.markdown("""
     
     /* Reducir espacio muerto en la parte superior de la página */
     [data-testid="stAppViewContainer"] > section:first-child > div:first-child {
-        padding-top: 2rem !important;
+        padding-top: 1.5rem !important;
     }
     
     /* Títulos y textos en color azul oscuro/pizarra */
     h1, h2, h3, h4, h5, h6, p, span, label {
         color: #0f172a !important;
-        margin-bottom: 0.2rem !important;
+        margin-bottom: 0.1rem !important;
     }
     
     /* Achicar espacio de separación nativo entre bloques de Streamlit */
     [data-testid="stVerticalBlock"] {
-        gap: 0.75rem !important;
+        gap: 0.6rem !important;
     }
     
-    /* Títulos de secciones compactos con línea divisoria integrada */
-    .titulo-seccion {
-        font-size: 1.2rem !important;
+    /* Ajuste fino para los subtítulos (st.subheader) originales */
+    .st-emotion-cache-12w0qpk, h2, h3 {
+        margin-top: 0.4rem !important;
+        margin-bottom: 0.2rem !important;
         font-weight: 700 !important;
-        border-bottom: 1px solid #cbd5e1;
-        padding-bottom: 4px;
-        margin-top: 0.5rem !important;
-        margin-bottom: 0.5rem !important;
     }
     
     /* Tarjetas de Métricas Internas Ultra-Compactas */
@@ -214,7 +211,7 @@ except:
     monto_total_a_cobrar_val = 0.0
 
 # =====================================================================
-# JERARQUÍA 1 y 2: TOTAL COBRADO Y CAPITAL VENDIDO (TÍTULO ORIGINAL)
+# JERARQUÍA 1 y 2: TOTAL COBRADO Y CAPITAL VENDIDO
 # =====================================================================
 col_v, col_c, col_i = st.columns(3)
 with col_v:
@@ -228,7 +225,7 @@ with col_i:
     st.markdown(f"<p class='fecha-kpi'>📅 Ref: {fecha_referencia}</p>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + RESUMEN CARTERA DE CRÉDITOS (TÍTULO ORIGINAL)
+# JERARQUÍA 3: PORCENTAJE MOROSIDAD TOTAL + RESUMEN CARTERA DE CRÉDITOS
 # =====================================================================
 col_mora, col_creditos = st.columns([1, 1])
 with col_mora:
@@ -252,9 +249,9 @@ with col_creditos:
     """, unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 4: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA (TÍTULO ORIGINAL)
+# JERARQUÍA 4: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA (TÍTULO ORIGINAL RESTAURADO)
 # =====================================================================
-st.markdown("<div class='titulo-seccion'>🏦 Composición y Disponibilidad de Caja</div>", unsafe_allow_html=True)
+st.subheader("🏦 Composición y Disponibilidad de Caja")
 
 col_caja1, col_caja2, col_caja3, col_caja4 = st.columns(4)
 with col_caja1:
@@ -267,9 +264,9 @@ with col_caja4:
     st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.2rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
 # =====================================================================
-# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (TÍTULO ORIGINAL)
+# JERARQUÍA 5: PRÓXIMAS COMPENSACIONES (TÍTULO ORIGINAL RESTAURADO)
 # =====================================================================
-st.markdown("<div class='titulo-seccion'>📅 Próximas Compensaciones</div>", unsafe_allow_html=True)
+st.subheader("📅 Próximas Compensaciones")
 
 try:
     comp_datos = [
@@ -290,9 +287,9 @@ except:
     st.warning("⚠️ Nota: Inconveniente al cargar compensaciones.")
 
 # =====================================================================
-# JERARQUÍA 6: PANEL DE PORCENTAJE DE MORA HISTÓRICA (REVISIÓN DESDE FILA 0)
+# JERARQUÍA 6: PANEL DE CONTROL DE MORA HISTÓRICA (TÍTULO ORIGINAL RESTAURADO)
 # =====================================================================
-st.markdown("<div class='titulo-seccion'>🚨 Panel de Control de Mora Histórica</div>", unsafe_allow_html=True)
+st.subheader("🚨 Panel de Control de Mora Histórica")
 
 dic_meses = {
     "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, "MAYO": 5, "JUNIO": 6,
@@ -374,7 +371,7 @@ else:
     st.warning("⚠️ No se encontraron meses históricos con porcentajes de mora válidos.")
 
 # =====================================================================
-# 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO) (TÍTULO ORIGINAL)
+# 7. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO) (TÍTULO ORIGINAL RESTAURADO)
 # =====================================================================
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
     st.dataframe(df_real)
