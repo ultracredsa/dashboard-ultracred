@@ -212,19 +212,16 @@ for fila_idx, fila in df_real.iterrows():
         break
 cobrado_lbl = "COBRADO"
 
-# Cálculo automático de diferencia directo en código
 monto_total_a_cobrar_val = monto_vencido_val - cobrado_val
-
-# Créditos a Cobrar
 creditos_a_cobrar_val = obtener_valor_por_texto("CRÉDITOS A COBRAR")
 
 
-# Creación de pestañas ejecutivas para mantener el Dashboard ordenado y limpio
+# Creación de pestañas ejecutivas
 tab_operacion, tab_mora_historica = st.tabs(["📊 Gestión y Monitoreo Diario", "🚨 Control de Mora Histórica"])
 
 with tab_operacion:
     # =====================================================================
-    # JERARQUÍA 1: GESTIÓN DEL DÍA ANTERIOR Y VENTA FINANCIERA (PRIORIDAD DUEÑOS)
+    # JERARQUÍA 1: GESTIÓN DEL DÍA ANTERIOR Y VENTA FINANCIERA
     # =====================================================================
     st.subheader("🚀 Gestión Comercial y Venta Financiera")
     col_v, col_c, col_i = st.columns(3)
@@ -264,7 +261,7 @@ with tab_operacion:
         """, unsafe_allow_html=True)
 
     # =====================================================================
-    # JERARQUÍA 3: COMPOSICIÓN AND DISPONIBILIDAD DE CAJA
+    # JERARQUÍA 3: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA
     # =====================================================================
     st.subheader("🏦 Composición y Disponibilidad de Caja")
     col_caja1, col_caja2, col_caja3, col_caja4 = st.columns(4)
@@ -358,19 +355,25 @@ with tab_mora_historica:
     if registros_mora:
         df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
         
-        lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
+        lista_anios = sorted(list(df_mora["Año"].unique()), reverse=True)
 
         col_filtro1, col_filtro2 = st.columns(2)
         with col_filtro1:
-            filtro_anio = st.selectbox("📅 Filtrar por Año Comercial:", lista_anios)
+            # 🔥 OPTIMIZACIÓN ACÁ: Cambiamos selectbox por multiselect para selección múltiple de años
+            filtros_anios_seleccionados = st.multiselect(
+                "📅 Seleccionar Años Comerciales:", 
+                options=lista_anios, 
+                default=[lista_anios[0]] # Por defecto abre marcando el año más reciente (ej. 2026)
+            )
         with col_filtro2:
             filtro_mora = st.selectbox("🔍 Filtrar por Nivel de Criticidad:", 
                                        ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
 
-        if filtro_anio != "Todos los años":
-            df_filtrado = df_mora[df_mora["Año"] == filtro_anio]
+        # Si el usuario selecciona años en el multiselect, filtramos usando .isin()
+        if filtros_anios_seleccionados:
+            df_filtrado = df_mora[df_mora["Año"].isin(filtros_anios_seleccionados)]
         else:
-            df_filtrado = df_mora
+            df_filtrado = df_mora # Si desmarca todos, por seguridad visual muestra toda la serie
 
         if filtro_mora == "Mora Crítica (Mayor a 12%)": 
             df_filtrado = df_filtrado[df_filtrado["% En Mora"] > 12.0]
@@ -379,13 +382,11 @@ with tab_mora_historica:
         elif filtro_mora == "Mora Controlada (Menor a 10%)": 
             df_filtrado = df_filtrado[df_filtrado["% En Mora"] < 10.0]
 
-        # Estilo de alerta visual para las celdas de la tabla
         def colorear_celda(val):
             if val > 12.0: return 'background-color: #fee2e2; color: #991b1b; font-weight: bold;'
             elif val > 10.0: return 'background-color: #fef3c7; color: #92400e;'
             return 'background-color: #e8f5e9; color: #1b5e20;'
 
-        # Renderizar la tabla de datos ordenada por su código cronológico interno antes de mostrarla
         df_tabla_render = df_filtrado.sort_values(by="Orden_Fecha")[["Período Comercial", "% En Mora"]]
         df_estilizado = (df_tabla_render.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
 
@@ -397,7 +398,6 @@ with tab_mora_historica:
             if not df_filtrado.empty:
                 df_grafico_limpio = df_filtrado.copy()
                 
-                # Función interna para mapear y crear un objeto DateTime válido y nativo
                 def crear_fecha_real(texto_periodo):
                     try:
                         partes = str(texto_periodo).upper().split()
@@ -411,22 +411,21 @@ with tab_mora_historica:
                 df_grafico_limpio["Fecha_Real"] = df_grafico_limpio["Período Comercial"].apply(crear_fecha_real)
                 df_grafico_limpio = df_grafico_limpio.dropna(subset=["Fecha_Real"])
                 
-                # 🔥 ORDENAMIENTO CRONOLÓGICO REAL DE PASADO A PRESENTE
+                # Ordenamos cronológicamente (indispensable para la multisección)
                 df_grafico_limpio = df_grafico_limpio.sort_values(by="Fecha_Real")
                 
-                # Formateamos el eje X para que muestre "Año-Mes" (Ej: 2026-05) forzando el orden temporal estructurado
+                # Etiqueta limpia 'Año-Mes' en el eje X
                 df_grafico_limpio["Eje_X"] = df_grafico_limpio["Fecha_Real"].dt.strftime("%Y-%m")
                 df_grafico_limpio = df_grafico_limpio.set_index("Eje_X")[["% En Mora"]]
                 
-                # 📈 Renderizado de gráfico de Área optimizado para visualizar acumulados de riesgo
                 st.area_chart(df_grafico_limpio, height=350)
             else:
-                st.info("No hay registros coincidentes para el filtro seleccionado.")
+                st.info("No hay registros coincidentes para los filtros seleccionados.")
     else:
         st.warning("⚠️ No se encontraron meses históricos válidos.")
 
 # =====================================================================
-# 6. REVISIÓN DE ESTRUCTURA REAL (DIAGNÓSTICO OPACO)
+# 6. REVISIÓN DE ESTRUCTURA REAL
 # =====================================================================
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
     st.dataframe(df_real)
