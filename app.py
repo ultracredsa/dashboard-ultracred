@@ -170,7 +170,7 @@ def obtener_valor_por_texto(texto_buscado):
     return 0.0
 
 # =====================================================================
-# 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA (SOPORTA DESPLAZAMIENTOS)
+# 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA
 # =====================================================================
 capital_vendido = obtener_valor_por_texto("VENTA (K)")
 if capital_vendido == 0.0:
@@ -264,7 +264,7 @@ with tab_operacion:
         """, unsafe_allow_html=True)
 
     # =====================================================================
-    # JERARQUÍA 3: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA
+    # JERARQUÍA 3: COMPOSICIÓN AND DISPONIBILIDAD DE CAJA
     # =====================================================================
     st.subheader("🏦 Composición y Disponibilidad de Caja")
     col_caja1, col_caja2, col_caja3, col_caja4 = st.columns(4)
@@ -278,7 +278,7 @@ with tab_operacion:
         st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.2rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
     # =====================================================================
-    # JERARQUÍA 4: PRÓXIMAS COMPENSACIONES (SEMANALES REALES EXCEL)
+    # JERARQUÍA 4: PRÓXIMAS COMPENSACIONES DINÁMICAS
     # =====================================================================
     st.subheader("📅 Próximas Compensaciones de Liquidación")
     try:
@@ -357,9 +357,7 @@ with tab_mora_historica:
 
     if registros_mora:
         df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
-        # 🔥 ORDENAMIENTO CRÍTICO: Asegura que el gráfico se dibuje estrictamente de pasado a presente lineal
-        df_mora = df_mora.sort_values(by="Orden_Fecha").reset_index(drop=True)
-
+        
         lista_anios = ["Todos los años"] + sorted(list(df_mora["Año"].unique()), reverse=True)
 
         col_filtro1, col_filtro2 = st.columns(2)
@@ -381,12 +379,14 @@ with tab_mora_historica:
         elif filtro_mora == "Mora Controlada (Menor a 10%)": 
             df_filtrado = df_filtrado[df_filtrado["% En Mora"] < 10.0]
 
+        # Estilo de alerta visual para las celdas de la tabla
         def colorear_celda(val):
             if val > 12.0: return 'background-color: #fee2e2; color: #991b1b; font-weight: bold;'
             elif val > 10.0: return 'background-color: #fef3c7; color: #92400e;'
             return 'background-color: #e8f5e9; color: #1b5e20;'
 
-        df_tabla_render = df_filtrado[["Período Comercial", "% En Mora"]]
+        # Renderizar la tabla de datos ordenada por su código cronológico interno antes de mostrarla
+        df_tabla_render = df_filtrado.sort_values(by="Orden_Fecha")[["Período Comercial", "% En Mora"]]
         df_estilizado = (df_tabla_render.style.map(colorear_celda, subset=["% En Mora"]).format({"% En Mora": "{:.2f}%"}))
 
         col_tabla, col_grafico = st.columns([4, 5])
@@ -395,10 +395,31 @@ with tab_mora_historica:
             
         with col_grafico:
             if not df_filtrado.empty:
-                df_grafico_limpio = df_filtrado.copy().sort_values(by="Orden_Fecha")
-                # Seteamos el Período Comercial indexado para que el eje X del gráfico sea limpio y secuencial
-                df_grafico_limpio = df_grafico_limpio.set_index("Período Comercial")[["% En Mora"]]
-                st.line_chart(df_grafico_limpio, height=350)
+                df_grafico_limpio = df_filtrado.copy()
+                
+                # Función interna para mapear y crear un objeto DateTime válido y nativo
+                def crear_fecha_real(texto_periodo):
+                    try:
+                        partes = str(texto_periodo).upper().split()
+                        nombre_mes = partes[0]
+                        anio = partes[1]
+                        mes_num = dic_meses.get(nombre_mes, 1)
+                        return pd.to_datetime(f"{anio}-{mes_num}-01")
+                    except:
+                        return pd.NaT
+
+                df_grafico_limpio["Fecha_Real"] = df_grafico_limpio["Período Comercial"].apply(crear_fecha_real)
+                df_grafico_limpio = df_grafico_limpio.dropna(subset=["Fecha_Real"])
+                
+                # 🔥 ORDENAMIENTO CRONOLÓGICO REAL DE PASADO A PRESENTE
+                df_grafico_limpio = df_grafico_limpio.sort_values(by="Fecha_Real")
+                
+                # Formateamos el eje X para que muestre "Año-Mes" (Ej: 2026-05) forzando el orden temporal estructurado
+                df_grafico_limpio["Eje_X"] = df_grafico_limpio["Fecha_Real"].dt.strftime("%Y-%m")
+                df_grafico_limpio = df_grafico_limpio.set_index("Eje_X")[["% En Mora"]]
+                
+                # 📈 Renderizado de gráfico de Área optimizado para visualizar acumulados de riesgo
+                st.area_chart(df_grafico_limpio, height=350)
             else:
                 st.info("No hay registros coincidentes para el filtro seleccionado.")
     else:
