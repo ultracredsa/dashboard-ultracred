@@ -240,12 +240,14 @@ with tab_operacion:
     with col_mora:
         st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
         st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
-        st.metric(label="💼 Créditos a Cobrar General", value=f"$ {creditos_a_cobrar_val:,.2f}")
+        # 🏷️ CAMBIO 1: Nombre solicitado "CRÉDITOS A COBRAR (vencido + no vencido)"
+        st.metric(label="💼 CRÉDITOS A COBRAR (vencido + no vencido)", value=f"$ {creditos_a_cobrar_val:,.2f}")
 
     with col_creditos:
+        # 🏷️ CAMBIO 2: Nombre solicitado "MONTO TOTAL A COBRAR VENCIDO"
         st.markdown(f"""
             <div class='card-detalle-credito-nueva'>
-                <label style='color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; margin-bottom: 2px; display: block;'>💼 MONTO TOTAL A COBRAR</label>
+                <label style='color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; margin-bottom: 2px; display: block;'>💼 MONTO TOTAL A COBRAR VENCIDO</label>
                 <div style='color: #0f172a; font-size: 1.5rem; font-weight: 800; margin-bottom: 6px;'>$ {monto_total_a_cobrar_val:,.2f}</div>
                 <div style='border-top: 1px solid #e2e8f0; padding-top: 3px;'>
                     <div class='linea-credito'>
@@ -359,21 +361,19 @@ with tab_mora_historica:
 
         col_filtro1, col_filtro2 = st.columns(2)
         with col_filtro1:
-            # 🔥 OPTIMIZACIÓN ACÁ: Cambiamos selectbox por multiselect para selección múltiple de años
             filtros_anios_seleccionados = st.multiselect(
                 "📅 Seleccionar Años Comerciales:", 
                 options=lista_anios, 
-                default=[lista_anios[0]] # Por defecto abre marcando el año más reciente (ej. 2026)
+                default=[lista_anios[0]]
             )
         with col_filtro2:
             filtro_mora = st.selectbox("🔍 Filtrar por Nivel de Criticidad:", 
                                        ["Todos los meses", "Mora Crítica (Mayor a 12%)", "Mora Alerta (10% a 12%)", "Mora Controlada (Menor a 10%)"])
 
-        # Si el usuario selecciona años en el multiselect, filtramos usando .isin()
         if filtros_anios_seleccionados:
             df_filtrado = df_mora[df_mora["Año"].isin(filtros_anios_seleccionados)]
         else:
-            df_filtrado = df_mora # Si desmarca todos, por seguridad visual muestra toda la serie
+            df_filtrado = df_mora
 
         if filtro_mora == "Mora Crítica (Mayor a 12%)": 
             df_filtrado = df_filtrado[df_filtrado["% En Mora"] > 12.0]
@@ -410,11 +410,8 @@ with tab_mora_historica:
 
                 df_grafico_limpio["Fecha_Real"] = df_grafico_limpio["Período Comercial"].apply(crear_fecha_real)
                 df_grafico_limpio = df_grafico_limpio.dropna(subset=["Fecha_Real"])
-                
-                # Ordenamos cronológicamente (indispensable para la multisección)
                 df_grafico_limpio = df_grafico_limpio.sort_values(by="Fecha_Real")
                 
-                # Etiqueta limpia 'Año-Mes' en el eje X
                 df_grafico_limpio["Eje_X"] = df_grafico_limpio["Fecha_Real"].dt.strftime("%Y-%m")
                 df_grafico_limpio = df_grafico_limpio.set_index("Eje_X")[["% En Mora"]]
                 
