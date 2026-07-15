@@ -184,11 +184,6 @@ total_cobrado_dia_anterior = obtener_valor_por_texto("TOTAL COBRADO")
 if total_cobrado_dia_anterior == 0.0:
     total_cobrado_dia_anterior = obtener_valor_por_texto("COBRADO")
 
-# Buscamos de manera flexible el nuevo concepto de TOTAL EGRESOS en tu planilla
-total_egresos = obtener_valor_por_texto("TOTAL EGRESOS")
-if total_egresos == 0.0:
-    total_egresos = obtener_valor_por_texto("EGRESOS TOTAL")
-
 morosidad_total = obtener_valor_por_texto("MORA TOTAL")
 if morosidad_total == 0.0:
     morosidad_total = obtener_valor_por_texto("% EN MORA")     
@@ -226,24 +221,16 @@ tab_operacion, tab_mora_historica = st.tabs(["📊 Gestión y Monitoreo Diario",
 
 with tab_operacion:
     # =====================================================================
-    # JERARQUÍA 1: GESTIÓN DEL DÍA ANTERIOR Y VENTA FINANCIERA (Nivel 4 Columnas)
+    # JERARQUÍA 1: GESTIÓN DEL DÍA ANTERIOR Y VENTA FINANCIERA
     # =====================================================================
     st.subheader("🚀 Gestión Comercial y Venta Financiera")
-    col_v, col_c, col_i, col_eg = st.columns(4)
+    col_v, col_c, col_i = st.columns(3)
     with col_v:
         st.metric(label="📉 Capital Vendido (K)", value=f"$ {capital_vendido:,.2f}")
     with col_c:
         st.metric(label="💰 Total Cobrado (Día Anterior)", value=f"$ {total_cobrado_dia_anterior:,.2f}")
     with col_i:
         st.metric(label="🤝 Intereses Convenios", value=f"$ {intereses_convenios:,.2f}")
-    with col_eg:
-        # 📌 Incorporación del total de egresos en un sutil tono rojo de alerta para marcar salidas financieras
-        st.markdown(f"""
-            <div data-testid="stMetric" style="border-left: 4px solid #ef4444 !important;">
-                <label style="color: #ef4444 !important; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.7rem;">💸 TOTAL EGRESOS</label>
-                <div data-testid="stMetricValue" style="color: #991b1b !important; font-size: 1.5rem; font-weight: 800;">$ {total_egresos:,.2f}</div>
-            </div>
-        """, unsafe_allow_html=True)
 
     # =====================================================================
     # JERARQUÍA 2: ESTRUCTURA Y COMPOSICIÓN DE LA CARTERA
@@ -253,9 +240,11 @@ with tab_operacion:
     with col_mora:
         st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
         st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
+        # 🏷️ CAMBIO 1: Nombre solicitado "CRÉDITOS A COBRAR (vencido + no vencido)"
         st.metric(label="💼 CRÉDITOS A COBRAR (vencido + no vencido)", value=f"$ {creditos_a_cobrar_val:,.2f}")
 
     with col_creditos:
+        # 🏷️ CAMBIO 2: Nombre solicitado "MONTO TOTAL A COBRAR VENCIDO"
         st.markdown(f"""
             <div class='card-detalle-credito-nueva'>
                 <label style='color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; margin-bottom: 2px; display: block;'>💼 MONTO TOTAL A COBRAR VENCIDO</label>
