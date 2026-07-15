@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime
 
 # =====================================================================
 # 1. CONFIGURACIÓN VISUAL: DISEÑO DE ALTO CONTRASTE INSTITUTIONAL COMPACTO
@@ -114,11 +115,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# 2. VINCULACIÓN CON LA NUBE Y CARGA INICIAL
+# 2. VINCULACIÓN CON LA NUBE Y CARGA INICIAL (Caché desactivada temporalmente para forzar refresh)
 # =====================================================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
-@st.cache_data(ttl=2) 
+@st.cache_data(ttl=1)  # ttl mínimo para forzar actualización inmediata tras cambiar código
 def cargar_datos_desde_nube(url):
     try:
         df = pd.read_csv(url, header=None, engine="python")
@@ -130,16 +131,18 @@ def cargar_datos_desde_nube(url):
 
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
+# Control de fecha seguro
 try:
-    fecha_referencia = str(df_real.iloc[0, 1]).strip()
-except:
-    fecha_referencia = "Fecha no disponible"
+    fecha_val = str(df_real.iloc[0, 1]).strip()
+    fecha_referencia = fecha_val if fecha_val else datetime.today().strftime('%d/%m/%Y')
+except Exception:
+    fecha_referencia = datetime.today().strftime('%d/%m/%Y')
 
 st.markdown(f"<h1>📈 Reporte UltraCred <span style='font-size: 1.3rem; color: #64748b; font-weight: 500; margin-left: 10px;'>({fecha_referencia})</span></h1>", unsafe_allow_html=True)
 st.caption("Conectado en tiempo real a Google Sheets (Nube)")
 
 # =====================================================================
-# 3. PROCESAMIENTO DINÁMICO DE NÚMEROS Y BÚSQUEDA INTELLIGENT
+# 3. PROCESAMIENTO DINÁMICO DE NÚMEROS Y BÚSQUEDA INTELIGENTE
 # =====================================================================
 def forzar_numero(val):
     if not val: return 0.0
@@ -172,18 +175,31 @@ def obtener_valor_por_texto(texto_buscado):
 # =====================================================================
 # 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA
 # =====================================================================
-capital_vendido = obtener_valor_por_texto("VENTA (K)")
-if capital_vendido == 0.0:
-    capital_vendido = obtener_valor_por_texto("VENTA (K) DEL DÍA")
-
-intereses_convenios = obtener_valor_por_texto("INTERESES CONVENIOS")
-if intereses_convenios == 0.0:
-    intereses_convenios = obtener_valor_por_texto("CONVENIOS")
-
+# 1. Total Cobrado
 total_cobrado_dia_anterior = obtener_valor_por_texto("TOTAL COBRADO") 
 if total_cobrado_dia_anterior == 0.0:
     total_cobrado_dia_anterior = obtener_valor_por_texto("COBRADO")
 
+# 2. Capital Vendido
+capital_vendido = obtener_valor_por_texto("VENTA (K)")
+if capital_vendido == 0.0:
+    capital_vendido = obtener_valor_por_texto("VENTA (K) DEL DÍA")
+
+# 3. Intereses Convenios
+intereses_convenios = obtener_valor_por_texto("INTERESES CONVENIOS")
+if intereses_convenios == 0.0:
+    intereses_convenios = obtener_valor_por_texto("CONVENIOS")
+
+# 4. Total Egresos (Búsqueda en cascada ante cualquier variación)
+total_egresos = obtener_valor_por_texto("TOTAL EGRESOS")
+if total_egresos == 0.0:
+    total_egresos = obtener_valor_por_texto("EGRESOS DEL DÍA")
+if total_egresos == 0.0:
+    total_egresos = obtener_valor_por_texto("EGRESOS")
+if total_egresos == 0.0:
+    total_egresos = obtener_valor_por_texto("EGRESOS TOTALES")
+
+# Morosidad y créditos
 morosidad_total = obtener_valor_por_texto("MORA TOTAL")
 if morosidad_total == 0.0:
     morosidad_total = obtener_valor_por_texto("% EN MORA")     
@@ -221,16 +237,21 @@ tab_operacion, tab_mora_historica = st.tabs(["📊 Gestión y Monitoreo Diario",
 
 with tab_operacion:
     # =====================================================================
-    # JERARQUÍA 1: GESTIÓN DEL DÍA ANTERIOR Y VENTA FINANCIERA
+    # JERARQUÍA 1: GESTIÓN DEL DÍA ANTERIOR Y VENTA FINANCIERA (4 COLUMNAS ESTRICTAS)
     # =====================================================================
     st.subheader("🚀 Gestión Comercial y Venta Financiera")
-    col_v, col_c, col_i = st.columns(3)
-    with col_v:
-        st.metric(label="📉 Capital Vendido (K)", value=f"$ {capital_vendido:,.2f}")
-    with col_c:
+    
+    # Forzamos una clave única en las columnas para obligar a Streamlit a refrescar el layout visual
+    col_cobrado, col_vendido, col_convenios, col_egresos = st.columns(4, gap="small")
+    
+    with col_cobrado:
         st.metric(label="💰 Total Cobrado (Día Anterior)", value=f"$ {total_cobrado_dia_anterior:,.2f}")
-    with col_i:
+    with col_vendido:
+        st.metric(label="📉 Capital Vendido (K)", value=f"$ {capital_vendido:,.2f}")
+    with col_convenios:
         st.metric(label="🤝 Intereses Convenios", value=f"$ {intereses_convenios:,.2f}")
+    with col_egresos:
+        st.metric(label="💸 Total Egresos", value=f"$ {total_egresos:,.2f}")
 
     # =====================================================================
     # JERARQUÍA 2: ESTRUCTURA Y COMPOSICIÓN DE LA CARTERA
@@ -240,11 +261,9 @@ with tab_operacion:
     with col_mora:
         st.metric(label="📊 Porcentaje Morosidad Total", value=f"{morosidad_total:.2f}%")
         st.markdown("<div style='margin-top: 12px;'></div>", unsafe_allow_html=True)
-        # 🏷️ CAMBIO 1: Nombre solicitado "CRÉDITOS A COBRAR (vencido + no vencido)"
         st.metric(label="💼 CRÉDITOS A COBRAR (vencido + no vencido)", value=f"$ {creditos_a_cobrar_val:,.2f}")
 
     with col_creditos:
-        # 🏷️ CAMBIO 2: Nombre solicitado "MONTO TOTAL A COBRAR VENCIDO"
         st.markdown(f"""
             <div class='card-detalle-credito-nueva'>
                 <label style='color: #475569; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; margin-bottom: 2px; display: block;'>💼 MONTO TOTAL A COBRAR VENCIDO</label>
@@ -364,7 +383,7 @@ with tab_mora_historica:
             filtros_anios_seleccionados = st.multiselect(
                 "📅 Seleccionar Años Comerciales:", 
                 options=lista_anios, 
-                default=[lista_anios[0]]
+                default=[lista_anios[0]] if lista_anios else []
             )
         with col_filtro2:
             filtro_mora = st.selectbox("🔍 Filtrar por Nivel de Criticidad:", 
@@ -400,11 +419,11 @@ with tab_mora_historica:
                 
                 def crear_fecha_real(texto_periodo):
                     try:
-                        partes = str(texto_periodo).upper().split()
+                        partes = str(texto_periodo).upper().strip().split()
                         nombre_mes = partes[0]
                         anio = partes[1]
                         mes_num = dic_meses.get(nombre_mes, 1)
-                        return pd.to_datetime(f"{anio}-{mes_num}-01")
+                        return pd.to_datetime(f"{anio}-{mes_num:02d}-01")
                     except:
                         return pd.NaT
 
