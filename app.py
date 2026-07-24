@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import requests
+import io
+import time
 
 # =====================================================================
 # 1. CONFIGURACIÓN VISUAL: DISEÑO DE ALTO CONTRASTE INSTITUTIONAL COMPACTO
@@ -115,19 +118,29 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# 2. VINCULACIÓN CON LA NUBE Y CARGA INICIAL (Caché desactivada temporalmente para forzar refresh)
+# 2. VINCULACIÓN CON LA NUBE ROBUSTA Y ANTI-BLOQUEO HTTP 500
 # =====================================================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
-@st.cache_data(ttl=1)  # ttl mínimo para forzar actualización inmediata tras cambiar código
+@st.cache_data(ttl=15)
 def cargar_datos_desde_nube(url):
-    try:
-        df = pd.read_csv(url, header=None, engine="python")
-        df = df.fillna("")
-        return df
-    except Exception as e:
-        st.error(f"❌ No se pudo conectar con el reporte en la nube. Error: {e}")
-        st.stop()
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    }
+    
+    # Sistema de reintentos para evitar caídas temporales de Google Sheets
+    for intento in range(3):
+        try:
+            res = requests.get(url, headers=headers, timeout=10)
+            if res.status_code == 200:
+                df = pd.read_csv(io.StringIO(res.text), header=None, engine="python")
+                return df.fillna("")
+            time.sleep(1)
+        except Exception:
+            time.sleep(1)
+            
+    st.error("❌ No se pudo conectar con el reporte en la nube por una saturación temporal de Google Sheets. Por favor, refresca la página.")
+    st.stop()
 
 df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
 
@@ -190,14 +203,12 @@ intereses_convenios = obtener_valor_por_texto("INTERESES CONVENIOS")
 if intereses_convenios == 0.0:
     intereses_convenios = obtener_valor_por_texto("CONVENIOS")
 
-# 4. Total Egresos (Búsqueda en cascada ante cualquier variación)
+# 4. Total Egresos
 total_egresos = obtener_valor_por_texto("TOTAL EGRESOS")
 if total_egresos == 0.0:
     total_egresos = obtener_valor_por_texto("EGRESOS DEL DÍA")
 if total_egresos == 0.0:
     total_egresos = obtener_valor_por_texto("EGRESOS")
-if total_egresos == 0.0:
-    total_egresos = obtener_valor_por_texto("EGRESOS TOTALES")
 
 # Morosidad y créditos
 morosidad_total = obtener_valor_por_texto("MORA TOTAL")
@@ -231,27 +242,25 @@ cobrado_lbl = "COBRADO"
 monto_total_a_cobrar_val = monto_vencido_val - cobrado_val
 creditos_a_cobrar_val = obtener_valor_por_texto("CRÉDITOS A COBRAR")
 
-
 # Creación de pestañas ejecutivas
 tab_operacion, tab_mora_historica = st.tabs(["📊 Gestión y Monitoreo Diario", "🚨 Control de Mora Histórica"])
 
 with tab_operacion:
     # =====================================================================
-    # JERARQUÍA 1: GESTIÓN DEL DÍA ANTERIOR Y VENTA FINANCIERA (4 COLUMNAS ESTRICTAS)
+    # JERARQUÍA 1: 4 COLUMNAS CON EL ORDEN EXACTO SOLICITADO
     # =====================================================================
     st.subheader("🚀 Gestión Comercial y Venta Financiera")
     
-    # Forzamos una clave única en las columnas para obligar a Streamlit a refrescar el layout visual
-    col_cobrado, col_vendido, col_convenios, col_egresos = st.columns(4, gap="small")
+    col1, col2, col3, col4 = st.columns(4)
     
-    with col_cobrado:
-        st.metric(label="💰 Total Cobrado (Día Anterior)", value=f"$ {total_cobrado_dia_anterior:,.2f}")
-    with col_vendido:
-        st.metric(label="📉 Capital Vendido (K)", value=f"$ {capital_vendido:,.2f}")
-    with col_convenios:
-        st.metric(label="🤝 Intereses Convenios", value=f"$ {intereses_convenios:,.2f}")
-    with col_egresos:
-        st.metric(label="💸 Total Egresos", value=f"$ {total_egresos:,.2f}")
+    with col1:
+        st.metric(label="💰 TOTAL COBRADO (DÍA ANTERIOR)", value=f"$ {total_cobrado_dia_anterior:,.2f}")
+    with col2:
+        st.metric(label="📉 CAPITAL VENDIDO (K)", value=f"$ {capital_vendido:,.2f}")
+    with col3:
+        st.metric(label="🤝 INTERESES CONVENIOS", value=f"$ {intereses_convenios:,.2f}")
+    with col4:
+        st.metric(label="💸 TOTAL EGRESOS", value=f"$ {total_egresos:,.2f}")
 
     # =====================================================================
     # JERARQUÍA 2: ESTRUCTURA Y COMPOSICIÓN DE LA CARTERA
@@ -332,7 +341,7 @@ with tab_operacion:
 
 with tab_mora_historica:
     # =====================================================================
-    # JERARQUÍA 5: PANEL DE CONTROL DE MORA HISTÓRICA (CRONOLÓGICO SEGURO)
+    # JERARQUÍA 5: PANEL DE CONTROL DE MORA HISTÓRICA
     # =====================================================================
     st.subheader("🚨 Panel de Control de Mora Histórica")
 
