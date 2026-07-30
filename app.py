@@ -118,42 +118,52 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# 2. VINCULACIÓN BLINDADA A PRUEBA DE ERRORES DE CONEXIÓN
+# 2. VINCULACIÓN BLINDADA CON RESPALDO PERSISTENTE
 # =====================================================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
-@st.cache_data(ttl=60)
-def consultar_google_sheets(url):
+# Almacén persistente a nivel servidor (sobrevive a recargas e instancias)
+@st.cache_resource
+def obtener_almacen_global():
+    return {"df": None}
+
+almacen_global = obtener_almacen_global()
+
+@st.cache_data(ttl=300, show_spinner=False) # Caché óptima de 5 minutos
+def descargar_csv_google(url):
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Cache-Control': 'no-cache'
     }
-    for intento in range(3):
+    for intento in range(4):
         try:
-            res = requests.get(url, headers=headers, timeout=8)
-            if res.status_code == 200 and len(res.text.strip()) > 0:
+            res = requests.get(url, headers=headers, timeout=10)
+            res.raise_for_status()
+            if len(res.text.strip()) > 50: # Validar que la respuesta no sea un error o texto vacío
                 df = pd.read_csv(io.StringIO(res.text), header=None, engine="python")
                 return df.fillna("")
         except Exception:
             pass
-        time.sleep(1.5)
+        time.sleep(2) # Pausa estratégica entre reintentos para no agredir a la API
     return None
 
 def cargar_datos_seguro(url):
-    df_nuevo = consultar_google_sheets(url)
+    df_nuevo = descargar_csv_google(url)
     
-    # Si la consulta fue exitosa, guardamos una copia de respaldo en la sesión
+    # 1. Si Google respondió correctamente, guardamos en memoria persistente
     if df_nuevo is not None and not df_nuevo.empty:
-        st.session_state["df_backup"] = df_nuevo
+        almacen_global["df"] = df_nuevo
         return df_nuevo
         
-    # Si Google falló, intentamos usar el respaldo de la sesión sin frenar la app
-    if "df_backup" in st.session_state:
-        st.toast("⚠️ Google Sheets no respondió a tiempo. Mostrando última versión en caché.", icon="🔄")
-        return st.session_state["df_backup"]
+    # 2. Si Google da error pero tenemos datos previos cargados, los usamos transparentemente
+    if almacen_global["df"] is not None:
+        st.toast("⚠️ Google Sheets no respondió. Usando datos guardados en caché.", icon="🔄")
+        return almacen_global["df"]
         
-    # Si es la primera vez y falla completamente
-    st.error("❌ No se pudo conectar con el reporte en la nube. Por favor, reintenta en unos segundos.")
-    st.stop()
+    # 3. Si es la primerísima ejecución y justo Google rebotó la conexión
+    st.warning("⏳ Google Sheets está saturado en este momento. Reintentando conexión...")
+    time.sleep(3)
+    st.rerun()
 
 df_real = cargar_datos_seguro(URL_GOOGLE_SHEETS_CSV)
 
@@ -201,7 +211,7 @@ def obtener_valor_por_texto(texto_buscado):
 # =====================================================================
 # 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA
 # =====================================================================
-# 1. Total Cobrado (Día Anterior)
+# 1. Total Cobrado
 total_cobrado_dia_anterior = obtener_valor_por_texto("TOTAL COBRADO") 
 if total_cobrado_dia_anterior == 0.0:
     total_cobrado_dia_anterior = obtener_valor_por_texto("COBRADO")
@@ -260,7 +270,7 @@ tab_operacion, tab_mora_historica = st.tabs(["📊 Gestión y Monitoreo Diario",
 
 with tab_operacion:
     # =====================================================================
-    # JERARQUÍA 1: 4 COLUMNAS EN EL ORDEN SOLICITADO
+    # JERARQUÍA 1: 4 COLUMNAS CON EL ORDEN EXACTO
     # =====================================================================
     st.subheader("🚀 Gestión Comercial y Venta Financiera")
     
