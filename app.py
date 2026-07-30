@@ -118,52 +118,53 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# 2. VINCULACIÓN BLINDADA CON RESPALDO PERSISTENTE
+# 2. VINCULACIÓN DIRECTA A EXPORTACIÓN CSV (NUEVA URL ESTABLE)
 # =====================================================================
-URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
+URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/1A5HKLUPxqidHkX1r2q77GquSp_TO4FMh/export?format=csv"
 
-# Almacén persistente a nivel servidor (sobrevive a recargas e instancias)
 @st.cache_resource
 def obtener_almacen_global():
     return {"df": None}
 
 almacen_global = obtener_almacen_global()
 
-@st.cache_data(ttl=300, show_spinner=False) # Caché óptima de 5 minutos
+@st.cache_data(ttl=120, show_spinner=False) # Refresco estable cada 2 minutos
 def descargar_csv_google(url):
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Cache-Control': 'no-cache'
     }
-    for intento in range(4):
-        try:
-            res = requests.get(url, headers=headers, timeout=10)
-            res.raise_for_status()
-            if len(res.text.strip()) > 50: # Validar que la respuesta no sea un error o texto vacío
-                df = pd.read_csv(io.StringIO(res.text), header=None, engine="python")
-                return df.fillna("")
-        except Exception:
-            pass
-        time.sleep(2) # Pausa estratégica entre reintentos para no agredir a la API
+    try:
+        res = requests.get(url, headers=headers, timeout=10)
+        if res.status_code == 200 and len(res.text.strip()) > 50:
+            df = pd.read_csv(io.StringIO(res.text), header=None, engine="python")
+            return df.fillna("")
+    except Exception:
+        pass
     return None
 
 def cargar_datos_seguro(url):
     df_nuevo = descargar_csv_google(url)
     
-    # 1. Si Google respondió correctamente, guardamos en memoria persistente
+    # 1. Si descargó con éxito, guardamos la copia
     if df_nuevo is not None and not df_nuevo.empty:
         almacen_global["df"] = df_nuevo
         return df_nuevo
         
-    # 2. Si Google da error pero tenemos datos previos cargados, los usamos transparentemente
+    # 2. Si falló pero hay datos en la memoria persistente del servidor, los usa sin trabar la app
     if almacen_global["df"] is not None:
-        st.toast("⚠️ Google Sheets no respondió. Usando datos guardados en caché.", icon="🔄")
+        st.toast("⚠️ Usando versión en memoria por parpadeo de red.", icon="🔄")
         return almacen_global["df"]
         
-    # 3. Si es la primerísima ejecución y justo Google rebotó la conexión
-    st.warning("⏳ Google Sheets está saturado en este momento. Reintentando conexión...")
-    time.sleep(3)
-    st.rerun()
+    # 3. Si es la primerísima ejecución y no pudo conectar
+    st.error("⚠️ **No se pudo descargar la planilla de Google Sheets.**")
+    st.info("Asegúrate de que la planilla tenga permisos de acceso público ('Cualquier persona con el enlace').")
+    
+    if st.button("🔄 Reintentar conexión"):
+        st.cache_data.clear()
+        st.rerun()
+        
+    st.stop()
 
 df_real = cargar_datos_seguro(URL_GOOGLE_SHEETS_CSV)
 
