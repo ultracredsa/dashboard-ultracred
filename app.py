@@ -118,31 +118,44 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# 2. VINCULACIÓN CON LA NUBE ROBUSTA Y ANTI-BLOQUEO HTTP 500
+# 2. VINCULACIÓN BLINDADA A PRUEBA DE ERRORES DE CONEXIÓN
 # =====================================================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv"
 
-@st.cache_data(ttl=15)
-def cargar_datos_desde_nube(url):
+@st.cache_data(ttl=60)
+def consultar_google_sheets(url):
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
     }
-    
-    # Sistema de reintentos para evitar caídas temporales de Google Sheets
     for intento in range(3):
         try:
-            res = requests.get(url, headers=headers, timeout=10)
-            if res.status_code == 200:
+            res = requests.get(url, headers=headers, timeout=8)
+            if res.status_code == 200 and len(res.text.strip()) > 0:
                 df = pd.read_csv(io.StringIO(res.text), header=None, engine="python")
                 return df.fillna("")
-            time.sleep(1)
         except Exception:
-            time.sleep(1)
-            
-    st.error("❌ No se pudo conectar con el reporte en la nube por una saturación temporal de Google Sheets. Por favor, refresca la página.")
+            pass
+        time.sleep(1.5)
+    return None
+
+def cargar_datos_seguro(url):
+    df_nuevo = consultar_google_sheets(url)
+    
+    # Si la consulta fue exitosa, guardamos una copia de respaldo en la sesión
+    if df_nuevo is not None and not df_nuevo.empty:
+        st.session_state["df_backup"] = df_nuevo
+        return df_nuevo
+        
+    # Si Google falló, intentamos usar el respaldo de la sesión sin frenar la app
+    if "df_backup" in st.session_state:
+        st.toast("⚠️ Google Sheets no respondió a tiempo. Mostrando última versión en caché.", icon="🔄")
+        return st.session_state["df_backup"]
+        
+    # Si es la primera vez y falla completamente
+    st.error("❌ No se pudo conectar con el reporte en la nube. Por favor, reintenta en unos segundos.")
     st.stop()
 
-df_real = cargar_datos_desde_nube(URL_GOOGLE_SHEETS_CSV)
+df_real = cargar_datos_seguro(URL_GOOGLE_SHEETS_CSV)
 
 # Control de fecha seguro
 try:
@@ -188,7 +201,7 @@ def obtener_valor_por_texto(texto_buscado):
 # =====================================================================
 # 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA
 # =====================================================================
-# 1. Total Cobrado
+# 1. Total Cobrado (Día Anterior)
 total_cobrado_dia_anterior = obtener_valor_por_texto("TOTAL COBRADO") 
 if total_cobrado_dia_anterior == 0.0:
     total_cobrado_dia_anterior = obtener_valor_por_texto("COBRADO")
@@ -247,7 +260,7 @@ tab_operacion, tab_mora_historica = st.tabs(["📊 Gestión y Monitoreo Diario",
 
 with tab_operacion:
     # =====================================================================
-    # JERARQUÍA 1: 4 COLUMNAS CON EL ORDEN EXACTO SOLICITADO
+    # JERARQUÍA 1: 4 COLUMNAS EN EL ORDEN SOLICITADO
     # =====================================================================
     st.subheader("🚀 Gestión Comercial y Venta Financiera")
     
