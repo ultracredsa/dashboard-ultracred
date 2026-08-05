@@ -6,41 +6,30 @@ import io
 import time
 
 # =====================================================================
-# 1. CONFIGURACIÓN VISUAL: DISEÑO DE ALTO CONTRASTE INSTITUTIONAL COMPACTO
+# 1. CONFIGURACIÓN VISUAL
 # =====================================================================
 st.set_page_config(page_title="UltraCred - Dashboard de Cobranzas", page_icon="📈", layout="wide")
 
 st.markdown("""
     <style>
-    /* Fondo general de la app (Gris claro premium) */
     .main, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {
         background-color: #f8fafc !important;
     }
-    
-    /* Reducir espacio muerto en la parte superior de la página */
     [data-testid="stAppViewContainer"] > section:first-child > div:first-child {
         padding-top: 1.5rem !important;
     }
-    
-    /* Títulos y textos en color azul oscuro/pizarra */
     h1, h2, h3, h4, h5, h6, p, span, label {
         color: #0f172a !important;
         margin-bottom: 0.1rem !important;
     }
-    
-    /* Achicar espacio de separación nativo entre bloques de Streamlit */
     [data-testid="stVerticalBlock"] {
         gap: 0.6rem !important;
     }
-    
-    /* Ajuste fino para los subtítulos (st.subheader) originales */
     .st-emotion-cache-12w0qpk, h2, h3 {
         margin-top: 0.4rem !important;
         margin-bottom: 0.2rem !important;
         font-weight: 700 !important;
     }
-    
-    /* Tarjetas de Métricas Internas Ultra-Compactas */
     div[data-testid="stMetric"] {
         background-color: #ffffff !important;
         padding: 12px 16px !important;
@@ -60,8 +49,6 @@ st.markdown("""
         font-size: 1.5rem !important;
         font-weight: 800 !important;
     }
-    
-    /* Bloque Especial de Créditos a Cobrar Compacto */
     .card-detalle-credito-nueva {
         background-color: #ffffff !important;
         padding: 12px 16px;
@@ -89,8 +76,6 @@ st.markdown("""
         font-size: 0.95rem;
         font-weight: 800;
     }
-    
-    /* Tarjetas de Caja Activa Compactas */
     .card-caja {
         background-color: #ffffff !important;
         padding: 12px;
@@ -101,8 +86,6 @@ st.markdown("""
         border-right: 1px solid #e2e8f0;
         border-bottom: 1px solid #e2e8f0;
     }
-    
-    /* Tarjetas de Compensaciones Compactas */
     .card-compensacion {
         background-color: #ffffff !important;
         padding: 10px;
@@ -118,7 +101,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# 2. VINCULACIÓN DIRECTA A EXPORTACIÓN CSV (NUEVA URL ESTABLE)
+# 2. VINCULACIÓN A PRUEBA DE CRASHES
 # =====================================================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/1A5HKLUPxqidHkX1r2q77GquSp_TO4FMh/export?format=csv"
 
@@ -128,17 +111,19 @@ def obtener_almacen_global():
 
 almacen_global = obtener_almacen_global()
 
-@st.cache_data(ttl=120, show_spinner=False) # Refresco estable cada 2 minutos
+@st.cache_data(ttl=120, show_spinner=False)
 def descargar_csv_google(url):
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'Cache-Control': 'no-cache'
     }
     try:
         res = requests.get(url, headers=headers, timeout=10)
-        if res.status_code == 200 and len(res.text.strip()) > 50:
+        if res.status_code == 200:
+            # Protegemos el read_csv para que si Google devuelve HTML no rompa Python
             df = pd.read_csv(io.StringIO(res.text), header=None, engine="python")
-            return df.fillna("")
+            if not df.empty:
+                return df.fillna("")
     except Exception:
         pass
     return None
@@ -146,19 +131,16 @@ def descargar_csv_google(url):
 def cargar_datos_seguro(url):
     df_nuevo = descargar_csv_google(url)
     
-    # 1. Si descargó con éxito, guardamos la copia
     if df_nuevo is not None and not df_nuevo.empty:
         almacen_global["df"] = df_nuevo
         return df_nuevo
         
-    # 2. Si falló pero hay datos en la memoria persistente del servidor, los usa sin trabar la app
     if almacen_global["df"] is not None:
-        st.toast("⚠️ Usando versión en memoria por parpadeo de red.", icon="🔄")
+        st.toast("⚠️ Usando datos guardados en memoria.", icon="🔄")
         return almacen_global["df"]
         
-    # 3. Si es la primerísima ejecución y no pudo conectar
-    st.error("⚠️ **No se pudo descargar la planilla de Google Sheets.**")
-    st.info("Asegúrate de que la planilla tenga permisos de acceso público ('Cualquier persona con el enlace').")
+    st.error("⚠️ **No se pudo conectar con Google Sheets en este momento.**")
+    st.info("Revisá que el archivo en Drive tenga permisos de lectura pública.")
     
     if st.button("🔄 Reintentar conexión"):
         st.cache_data.clear()
@@ -212,29 +194,24 @@ def obtener_valor_por_texto(texto_buscado):
 # =====================================================================
 # 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA
 # =====================================================================
-# 1. Total Cobrado
 total_cobrado_dia_anterior = obtener_valor_por_texto("TOTAL COBRADO") 
 if total_cobrado_dia_anterior == 0.0:
     total_cobrado_dia_anterior = obtener_valor_por_texto("COBRADO")
 
-# 2. Capital Vendido
 capital_vendido = obtener_valor_por_texto("VENTA (K)")
 if capital_vendido == 0.0:
     capital_vendido = obtener_valor_por_texto("VENTA (K) DEL DÍA")
 
-# 3. Intereses Convenios
 intereses_convenios = obtener_valor_por_texto("INTERESES CONVENIOS")
 if intereses_convenios == 0.0:
     intereses_convenios = obtener_valor_por_texto("CONVENIOS")
 
-# 4. Total Egresos
 total_egresos = obtener_valor_por_texto("TOTAL EGRESOS")
 if total_egresos == 0.0:
     total_egresos = obtener_valor_por_texto("EGRESOS DEL DÍA")
 if total_egresos == 0.0:
     total_egresos = obtener_valor_por_texto("EGRESOS")
 
-# Morosidad y créditos
 morosidad_total = obtener_valor_por_texto("MORA TOTAL")
 if morosidad_total == 0.0:
     morosidad_total = obtener_valor_por_texto("% EN MORA")     
@@ -242,7 +219,6 @@ if morosidad_total == 0.0:
 if 0 < morosidad_total < 1.0: 
     morosidad_total = morosidad_total * 100.0
 
-# Caja Disponibilidades
 efectivo = obtener_valor_por_texto("EFECTIVO")
 macro_fci = obtener_valor_por_texto("MACRO")
 debito_suarez = obtener_valor_por_texto("SUAREZ")
@@ -252,7 +228,6 @@ total_caja = obtener_valor_por_texto("TOTAL CAJA")
 if total_caja == 0.0:
     total_caja = obtener_valor_por_texto("CAJA TOTAL")
 
-# Bloque Estructura Interna de Cobros
 monto_vencido_val = obtener_valor_por_texto("MONTO VENCIDO")
 monto_vencido_lbl = "MONTO VENCIDO"
 
@@ -266,17 +241,11 @@ cobrado_lbl = "COBRADO"
 monto_total_a_cobrar_val = monto_vencido_val - cobrado_val
 creditos_a_cobrar_val = obtener_valor_por_texto("CRÉDITOS A COBRAR")
 
-# Creación de pestañas ejecutivas
 tab_operacion, tab_mora_historica = st.tabs(["📊 Gestión y Monitoreo Diario", "🚨 Control de Mora Histórica"])
 
 with tab_operacion:
-    # =====================================================================
-    # JERARQUÍA 1: 4 COLUMNAS CON EL ORDEN EXACTO
-    # =====================================================================
     st.subheader("🚀 Gestión Comercial y Venta Financiera")
-    
     col1, col2, col3, col4 = st.columns(4)
-    
     with col1:
         st.metric(label="💰 TOTAL COBRADO (DÍA ANTERIOR)", value=f"$ {total_cobrado_dia_anterior:,.2f}")
     with col2:
@@ -286,9 +255,6 @@ with tab_operacion:
     with col4:
         st.metric(label="💸 TOTAL EGRESOS", value=f"$ {total_egresos:,.2f}")
 
-    # =====================================================================
-    # JERARQUÍA 2: ESTRUCTURA Y COMPOSICIÓN DE LA CARTERA
-    # =====================================================================
     st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
     col_mora, col_creditos = st.columns([1, 1])
     with col_mora:
@@ -314,9 +280,6 @@ with tab_operacion:
             </div>
         """, unsafe_allow_html=True)
 
-    # =====================================================================
-    # JERARQUÍA 3: COMPOSICIÓN Y DISPONIBILIDAD DE CAJA
-    # =====================================================================
     st.subheader("🏦 Composición y Disponibilidad de Caja")
     col_caja1, col_caja2, col_caja3, col_caja4 = st.columns(4)
     with col_caja1:
@@ -328,9 +291,6 @@ with tab_operacion:
     with col_caja4:
         st.markdown(f"<div class='card-caja' style='border-left-color: #475569;'><span style='color:#475569; font-size:0.75rem; font-weight:700;'>📈 TOTAL GENERAL EN CAJA</span><br><span style='font-size:1.2rem; font-weight:800; color:#1e293b;'>$ {total_caja:,.2f}</span></div>", unsafe_allow_html=True)
 
-    # =====================================================================
-    # JERARQUÍA 4: PRÓXIMAS COMPENSACIONES DINÁMICAS
-    # =====================================================================
     st.subheader("📅 Próximas Compensaciones de Liquidación")
     try:
         comp_datos = []
@@ -362,13 +322,8 @@ with tab_operacion:
     except Exception as e:
         st.warning(f"⚠️ Nota: Inconveniente al cargar compensaciones dinámicas: {e}")
 
-
 with tab_mora_historica:
-    # =====================================================================
-    # JERARQUÍA 5: PANEL DE CONTROL DE MORA HISTÓRICA
-    # =====================================================================
     st.subheader("🚨 Panel de Control de Mora Histórica")
-
     dic_meses = {
         "ENERO": 1, "FEBRERO": 2, "MARZO": 3, "ABRIL": 4, "MAYO": 5, "JUNIO": 6,
         "JULIO": 7, "AGOSTO": 8, "SEPTIEMBRE": 9, "OCTUBRE": 10, "NOVIEMBRE": 11, "DICIEMBRE": 12
@@ -408,7 +363,6 @@ with tab_mora_historica:
 
     if registros_mora:
         df_mora = pd.DataFrame(registros_mora).drop_duplicates(subset=["Período Comercial"])
-        
         lista_anios = sorted(list(df_mora["Año"].unique()), reverse=True)
 
         col_filtro1, col_filtro2 = st.columns(2)
@@ -473,8 +427,5 @@ with tab_mora_historica:
     else:
         st.warning("⚠️ No se encontraron meses históricos válidos.")
 
-# =====================================================================
-# 6. REVISIÓN DE ESTRUCTURA REAL
-# =====================================================================
 with st.expander("🔍 PASO DE CONTROL: Ver cómo Streamlit está leyendo tu Planilla"):
     st.dataframe(df_real)
