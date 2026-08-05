@@ -1,9 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import requests
-import io
-import time
 
 # =====================================================================
 # 1. CONFIGURACIÓN VISUAL
@@ -101,54 +98,32 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =====================================================================
-# 2. VINCULACIÓN A PRUEBA DE CRASHES
+# 2. CARGA DE DATOS DIRECTA CON PANDAS
 # =====================================================================
 URL_GOOGLE_SHEETS_CSV = "https://docs.google.com/spreadsheets/d/1A5HKLUPxqidHkX1r2q77GquSp_TO4FMh/export?format=csv"
 
-@st.cache_resource
-def obtener_almacen_global():
-    return {"df": None}
-
-almacen_global = obtener_almacen_global()
-
-@st.cache_data(ttl=120, show_spinner=False)
-def descargar_csv_google(url):
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-        'Cache-Control': 'no-cache'
-    }
+@st.cache_data(ttl=120)
+def cargar_datos_pandas(url):
     try:
-        res = requests.get(url, headers=headers, timeout=10)
-        if res.status_code == 200:
-            # Protegemos el read_csv para que si Google devuelve HTML no rompa Python
-            df = pd.read_csv(io.StringIO(res.text), header=None, engine="python")
-            if not df.empty:
-                return df.fillna("")
-    except Exception:
-        pass
-    return None
+        df = pd.read_csv(url, header=None, engine="python")
+        return df.fillna("")
+    except Exception as e:
+        return None
 
-def cargar_datos_seguro(url):
-    df_nuevo = descargar_csv_google(url)
-    
-    if df_nuevo is not None and not df_nuevo.empty:
-        almacen_global["df"] = df_nuevo
-        return df_nuevo
-        
-    if almacen_global["df"] is not None:
-        st.toast("⚠️ Usando datos guardados en memoria.", icon="🔄")
-        return almacen_global["df"]
-        
-    st.error("⚠️ **No se pudo conectar con Google Sheets en este momento.**")
-    st.info("Revisá que el archivo en Drive tenga permisos de lectura pública.")
-    
-    if st.button("🔄 Reintentar conexión"):
+df_real = cargar_datos_pandas(URL_GOOGLE_SHEETS_CSV)
+
+if df_real is None or df_real.empty:
+    st.error("⚠️ **No se pudieron obtener los datos de Google Sheets.**")
+    st.info("""
+    **Pasos de verificación en Google Drive:**
+    1. Abrí tu planilla en el navegador.
+    2. Andá a **Archivo > Guardar como hoja de cálculo de Google** (si actualmente está guardada como `.xlsx`).
+    3. Hacé clic en **Compartir > Cambiar a cualquier persona con el enlace**.
+    """)
+    if st.button("🔄 Reintentar"):
         st.cache_data.clear()
         st.rerun()
-        
     st.stop()
-
-df_real = cargar_datos_seguro(URL_GOOGLE_SHEETS_CSV)
 
 # Control de fecha seguro
 try:
@@ -192,7 +167,7 @@ def obtener_valor_por_texto(texto_buscado):
     return 0.0
 
 # =====================================================================
-# 4. EXTRACCIÓN MAESTRA TOTALMENTE DINÁMICA
+# 4. EXTRACCIÓN MAESTRA
 # =====================================================================
 total_cobrado_dia_anterior = obtener_valor_por_texto("TOTAL COBRADO") 
 if total_cobrado_dia_anterior == 0.0:
