@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Reporte UltraCred</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F6F4; --surface:#FFFFFF; --ink:#10201A; --muted:#5B6B64; --rule:#D5E0DA;
+  --money:#17694A; --ok:#2E8B5E; --warn:#B7791F; --crit:#B3261E; --bank:#2F5D8A; --debit:#6B4E9B;
+  --focus:#17694A;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0D1512; --surface:#15201B; --ink:#E4EEE9; --muted:#93A69D; --rule:#26362F;
+    --money:#4CC38A; --ok:#4CC38A; --warn:#E0A33B; --crit:#F07167; --bank:#6FA3D8; --debit:#AE92DD;
+    --focus:#4CC38A; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0D1512; --surface:#15201B; --ink:#E4EEE9; --muted:#93A69D; --rule:#26362F;
+  --money:#4CC38A; --ok:#4CC38A; --warn:#E0A33B; --crit:#F07167; --bank:#6FA3D8; --debit:#AE92DD;
+  --focus:#4CC38A; color-scheme: dark;
+}
+:root{ box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px); }
+html{ scroll-padding-top:env(safe-area-inset-top,0px); }
+*,*::before,*::after{ box-sizing:inherit; }
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:16px; line-height:1.45; font-variant-numeric:tabular-nums;
+}
+.wrap{ max-width:1120px; margin:0 auto; padding:24px clamp(14px,4vw,32px) 48px; }
+.num,.big,h1,.date{ font-family:"Barlow Condensed","Arial Narrow",system-ui,sans-serif; }
+
+header.top{ display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 24px; padding-bottom:18px; border-bottom:2px solid var(--ink); }
+h1{ margin:0; font-size:clamp(1.9rem,5vw,2.8rem); font-weight:700; line-height:1; letter-spacing:-.01em; }
+.date{ font-size:clamp(1.1rem,2.6vw,1.4rem); color:var(--muted); font-weight:500; margin-top:6px; }
+.status{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:.92rem; }
+.dot{ width:8px; height:8px; border-radius:50%; background:var(--muted); display:inline-block; }
+.dot.live{ background:var(--ok); }
+.dot.stale{ background:var(--warn); }
+button,select,.filebtn{
+  font:inherit; color:var(--ink); background:var(--surface); border:1px solid var(--rule);
+  border-radius:6px; padding:7px 12px; cursor:pointer;
+}
+button:hover,.filebtn:hover{ border-color:var(--muted); }
+button:focus-visible,select:focus-visible,.filebtn:focus-within{ outline:2px solid var(--focus); outline-offset:2px; }
+button[disabled]{ opacity:.5; cursor:default; }
+
+.banner{ margin:16px 0 0; padding:12px 14px; border-left:4px solid var(--warn); background:var(--surface); border-radius:0 6px 6px 0; }
+.banner.crit{ border-left-color:var(--crit); }
+.banner[hidden]{ display:none; }
+
+section{ margin-top:34px; }
+h2{ font-size:1.05rem; font-weight:700; margin:0 0 12px; display:flex; align-items:baseline; gap:10px; }
+h2 small{ font-weight:500; color:var(--muted); font-size:.9rem; }
+
+.figs{ display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); border-top:1px solid var(--rule); }
+.fig{ padding:14px 16px 16px 0; border-bottom:1px solid var(--rule); }
+.fig .lbl{ color:var(--muted); font-size:.92rem; font-weight:500; }
+.fig .num{ font-size:clamp(1.6rem,3.4vw,2rem); font-weight:600; line-height:1.15; margin-top:2px; overflow-wrap:anywhere; }
+.fig .num.zero{ color:var(--muted); }
+
+.two{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+@media (max-width:760px){ .two{ grid-template-columns:1fr; } }
+.panel{ background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:18px 20px; }
+.big{ font-size:clamp(2.4rem,7vw,3.4rem); font-weight:700; line-height:1; }
+.moraBig{ display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; }
+.tag{ font-size:.85rem; font-weight:600; padding:3px 9px; border-radius:999px; border:1px solid currentColor; }
+.tag.ok{ color:var(--ok);} .tag.warn{ color:var(--warn);} .tag.crit{ color:var(--crit);}
+.lines{ margin-top:14px; }
+.line{ display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid var(--rule); }
+.line .num{ font-size:1.2rem; font-weight:600; }
+.line.res .num{ font-size:1.45rem; color:var(--money); }
+.sub{ color:var(--muted); font-size:.92rem; }
+
+.caja{ display:grid; grid-template-columns:minmax(200px,1fr) 2fr; gap:24px; align-items:center; }
+@media (max-width:760px){ .caja{ grid-template-columns:1fr; } }
+.bar{ display:flex; height:14px; border-radius:7px; overflow:hidden; background:var(--rule); }
+.bar span{ display:block; height:100%; }
+.legend{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px 18px; margin-top:14px; }
+.legend div{ border-left:4px solid var(--c); padding-left:10px; }
+.legend .num{ font-size:1.3rem; font-weight:600; display:block; }
+
+.comps{ display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
+.comp{ background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:14px 16px; }
+.comp .when{ font-weight:600; }
+.comp .in{ color:var(--muted); font-size:.9rem; }
+.comp .num{ font-size:1.5rem; font-weight:600; margin-top:4px; color:var(--bank); }
+.comp.soon{ border-color:var(--bank); box-shadow:inset 3px 0 0 var(--bank); }
+
+.controls{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; margin-bottom:12px; }
+.chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.chip{ padding:5px 11px; border-radius:999px; font-size:.92rem; }
+.chip[aria-pressed="true"]{ background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+table.heat{ border-collapse:separate; border-spacing:3px; min-width:640px; width:100%; }
+.heat th{ font-size:.82rem; font-weight:600; color:var(--muted); padding:2px 4px; text-align:center; }
+.heat th.y{ text-align:left; color:var(--ink); font-family:"Barlow Condensed",sans-serif; font-size:1.05rem; }
+.heat td{ text-align:center; padding:7px 2px; border-radius:4px; font-size:.9rem; font-weight:600; transition:opacity .2s; }
+.heat td.empty{ background:transparent; color:var(--rule); }
+.heat td.dim{ opacity:.15; }
+.keys{ display:flex; flex-wrap:wrap; gap:6px 16px; font-size:.88rem; color:var(--muted); margin-top:10px; }
+.keys i{ display:inline-block; width:12px; height:12px; border-radius:3px; margin-right:6px; vertical-align:-1px; }
+#chart{ margin-top:16px; }
+#chart svg{ display:block; width:100%; height:auto; }
+#chart text{ fill:var(--muted); font-family:"Barlow",system-ui,sans-serif; font-size:12px; }
+
+details.raw{ margin-top:34px; }
+details.raw summary{ cursor:pointer; color:var(--muted); }
+table.rawt{ border-collapse:collapse; font-size:.9rem; margin-top:10px; }
+.rawt td{ padding:4px 12px 4px 0; border-bottom:1px solid var(--rule); }
+.rawt td:last-child{ text-align:right; }
+
+footer{ margin-top:34px; padding-top:14px; border-top:1px solid var(--rule); display:flex; flex-wrap:wrap; gap:10px 16px; align-items:center; color:var(--muted); font-size:.9rem; }
+.filebtn input{ position:absolute; opacity:0; width:1px; height:1px; }
+.filebtn{ position:relative; display:inline-block; }
+.empty-state{ padding:40px 0; color:var(--muted); }
+@media (prefers-reduced-motion:reduce){ *{ transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Reporte UltraCred</h1>
+      <div class="date" id="fecha">Cargando planilla…</div>
+    </div>
+    <div class="status">
+      <span class="dot" id="dot"></span><span id="stamp">Conectando con la planilla</span>
+      <button id="refresh" type="button" disabled>Actualizar</button>
+    </div>
+  </header>
+  <div class="banner" id="banner" role="status" hidden></div>
+
+  <main id="main"><p class="empty-state">Leyendo REPORTE INTERACTIVO.xlsx…</p></main>
+
+  <footer>
+    <span>Fuente: REPORTE INTERACTIVO (Google Sheets publicado en la Web). Se actualiza solo cada 2 minutos.</span>
+  </footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTYzZVnpesIun4fZkyvu2G1wOytYnrMJYn7rv9B87Ko3kxzhN1XGw3VLmvGrUNveg/pub?output=csv";
+const REFRESCO_MS = 120000;
+const MESES = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO","JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"];
+const MES_CORTO = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const nf0 = new Intl.NumberFormat("es-AR",{maximumFractionDigits:0});
+const money = v => "$ " + nf0.format(Math.round(v || 0));
+const pct = (v,d=2) => (v||0).toFixed(d).replace(".",",") + "%";
+
+let current = null, stampAt = null, cargando = false;
+let selectedYears = null, nivel = "todos";
+
+/* ---------- lectura de la planilla ---------- */
+function forzarNumero(val){
+  if (val === null || val === undefined || val === "") return 0;
+  let s = String(val).trim().toUpperCase().replace(/\$/g,"").replace(/%/g,"").replace(/\s/g,"");
+  if (!s) return 0;
+  if (s.includes(",") && s.includes(".")){
+    s = s.lastIndexOf(",") > s.lastIndexOf(".") ? s.replace(/\./g,"").replace(",",".") : s.replace(/,/g,"");
+  } else if (s.includes(",")){
+    s = (s.split(",").length === 2 && s.split(",")[1].length <= 2) ? s.replace(",",".") : s.replace(/,/g,"");
+  } else if ((s.match(/\./g)||[]).length > 1){ s = s.replace(/\./g,""); }
+  else if (s.includes(".") && s.split(".")[1].length === 3){ s = s.replace(".",""); }
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+function cellNum(c){
+  if (!c) return 0;
+  if (c.t === "n") return c.v;
+  if (c.t === "b") return c.v ? 1 : 0;
+  return forzarNumero(c.w != null ? c.w : c.v);
+}
+function cellPct(c){
+  if (!c) return 0;
+  if (c.t === "n"){
+    const isPct = (c.z && String(c.z).includes("%")) || (c.v > 0 && c.v < 1);
+    return isPct ? c.v * 100 : c.v;
+  }
+  const n = forzarNumero(c.w != null ? c.w : c.v);
+  return (n > 0 && n < 1 && !String(c.v).includes("%")) ? n * 100 : n;
+}
+function cellDate(c){
+  if (!c) return null;
+  const m = String(c.v).match(/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/);
+  if (!m) return null;
+  let a = +m[1], b = +m[2], y = +m[3]; if (y < 100) y += 2000;
+  if (b > 12 && a <= 12){ const t = a; a = b; b = t; }
+  return new Date(y, b - 1, a);
+}
+
+function parseCSV(text){
+  const out = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if (q){
+      if (ch === '"'){ if (text[i+1] === '"'){ f += '"'; i++; } else q = false; }
+      else f += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ","){ row.push(f); f = ""; }
+    else if (ch === "\n" || ch === "\r"){
+      if (ch === "\r" && text[i+1] === "\n") i++;
+      row.push(f); out.push(row); row = []; f = "";
+    } else f += ch;
+  }
+  if (f !== "" || row.length){ row.push(f); out.push(row); }
+  return out;
+}
+
+function extraer(csvText){
+  const rows = parseCSV(csvText).map(r => {
+    const label = String(r[0] || "").trim();
+    const bv = String(r[1] == null ? "" : r[1]).trim();
+    return {label, up: label.toUpperCase(), b: bv === "" ? null : {t:"s", v:bv, w:bv}};
+  });
+  const find = t => rows.find(x => x.up.includes(t.toUpperCase()));
+  const num = t => { const x = find(t); return x ? cellNum(x.b) : 0; };
+  const first = (...ts) => { for (const t of ts){ const v = num(t); if (v) return v; } return 0; };
+
+  const fechaRow = rows[0];
+  let fecha = fechaRow ? cellDate(fechaRow.b) : null;
+  const fechaTxt = fecha ? fecha.toLocaleDateString("es-AR",{weekday:"long", day:"numeric", month:"long", year:"numeric"})
+                         : (fechaRow && fechaRow.b ? String(fechaRow.b.w || fechaRow.b.v) : new Date().toLocaleDateString("es-AR"));
+  if (!fecha) fecha = new Date();
+
+  let mora = 0;
+  { const x = find("MORA TOTAL") || find("% EN MORA"); if (x) mora = cellPct(x.b); }
+
+  const vencidoRow = find("MONTO VENCIDO");
+  const cobradoRow = rows.find(x => x.up === "COBRADO");
+  const montoVencido = vencidoRow ? cellNum(vencidoRow.b) : 0;
+  const cobrado = cobradoRow ? cellNum(cobradoRow.b) : 0;
+
+  const comps = [];
+  for (const x of rows){
+    if (x.up.includes("COMPENSACIÓN") && !x.up.includes("TOTAL")){
+      const txt = x.label.replace(/[\\*]/g,"").trim();
+      const m = txt.match(/(\d{1,2})\/(\d{1,2})/);
+      let d = null;
+      if (m){
+        d = new Date(fecha.getFullYear(), +m[2]-1, +m[1]);
+        if (d - fecha < -1000*60*60*24*180) d.setFullYear(d.getFullYear()+1);
+      }
+      comps.push({txt, fecha:d, monto: cellNum(x.b)});
+      if (comps.length === 4) break;
+    }
+  }
+
+  const moraHist = [], vistos = new Set();
+  for (const x of rows){
+    const mi = MESES.findIndex(m => x.up.includes(m));
+    if (mi < 0 || x.up.includes("TOTAL") || x.up.includes("MORA") || x.up.includes("COMPENSACI")) continue;
+    if (vistos.has(x.up)) continue;
+    vistos.add(x.up);
+    const ym = x.up.match(/20\d\d/);
+    const anio = ym ? +ym[0] : fecha.getFullYear();
+    moraHist.push({label:x.label, anio, mes:mi, v: cellPct(x.b)});
+  }
+  moraHist.sort((a,b) => (a.anio*12+a.mes) - (b.anio*12+b.mes));
+
+  return {
+    fecha, fechaTxt,
+    cobradoDia: first("TOTAL COBRADO","COBRADO"),
+    venta: first("VENTA (K)","VENTA (K) DEL DÍA"),
+    convenios: first("INTERESES CONVENIOS","CONVENIOS"),
+    egresos: first("TOTAL EGRESOS","EGRESOS DEL DÍA","EGRESOS"),
+    mora,
+    creditosACobrar: num("CRÉDITOS A COBRAR"),
+    montoVencido, cobrado, aCobrarVencido: montoVencido - cobrado,
+    efectivo: num("EFECTIVO"), bancos: num("MACRO"),
+    debito: first("SUAREZ","DÉBITO"), totalCaja: first("TOTAL CAJA","CAJA TOTAL"),
+    comps, moraHist,
+    raw: rows.filter(x => x.label).map(x => [x.label, x.b ? (x.b.w != null ? x.b.w : String(x.b.v)) : ""])
+  };
+}
+
+/* ---------- render ---------- */
+const nivelDe = v => v > 12 ? "crit" : (v >= 10 ? "warn" : "ok");
+const nivelTxt = {ok:"Controlada", warn:"Alerta", crit:"Crítica"};
+
+function fig(lbl, v){ return `<div class="fig"><div class="lbl">${lbl}</div><div class="num${v ? "" : " zero"}">${money(v)}</div></div>`; }
+
+function render(d){
+  $("fecha").textContent = d.fechaTxt.charAt(0).toUpperCase() + d.fechaTxt.slice(1);
+  const lv = nivelDe(d.mora);
+  const cajaParts = [
+    {k:"Efectivo", v:d.efectivo, c:"var(--money)"},
+    {k:"Bancos (Macro + FCI)", v:d.bancos, c:"var(--bank)"},
+    {k:"Débito + Cnel. Suárez", v:d.debito, c:"var(--debit)"}
+  ];
+  const suma = cajaParts.reduce((s,p) => s + Math.max(p.v,0), 0) || 1;
+  const hoy = new Date(d.fecha); hoy.setHours(0,0,0,0);
+  const comps = d.comps.filter(c => c.monto > 0);
+
+  $("main").innerHTML = `
+  <section>
+    <h2>Movimiento del día <small>(día anterior)</small></h2>
+    <div class="figs">
+      ${fig("Total cobrado", d.cobradoDia)}
+      ${fig("Capital vendido (K)", d.venta)}
+      ${fig("Intereses convenios", d.convenios)}
+      ${fig("Total egresos", d.egresos)}
+    </div>
+  </section>
+
+  <section>
+    <h2>Cartera</h2>
+    <div class="two">
+      <div class="panel">
+        <div class="sub">Morosidad total</div>
+        <div class="moraBig"><span class="big">${pct(d.mora)}</span><span class="tag ${lv}">${nivelTxt[lv]}</span></div>
+        <div class="lines">
+          <div class="line"><span>Créditos a cobrar <span class="sub">(vencido + no vencido)</span></span><span class="num">${money(d.creditosACobrar)}</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="sub">Monto total a cobrar vencido</div>
+        <div class="lines">
+          <div class="line"><span>Monto vencido</span><span class="num">${money(d.montoVencido)}</span></div>
+          <div class="line"><span>Cobrado</span><span class="num">− ${money(d.cobrado)}</span></div>
+          <div class="line res"><span><b>A cobrar vencido</b></span><span class="num">${money(d.aCobrarVencido)}</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Caja</h2>
+    <div class="panel caja">
+      <div><div class="sub">Total general en caja</div><div class="big">${money(d.totalCaja)}</div></div>
+      <div>
+        <div class="bar" role="img" aria-label="Composición de la caja">
+          ${cajaParts.map(p => `<span style="width:${(Math.max(p.v,0)/suma*100).toFixed(2)}%;background:${p.c}" title="${esc(p.k)}"></span>`).join("")}
+        </div>
+        <div class="legend">
+          ${cajaParts.map(p => `<div style="--c:${p.c}"><span class="sub">${esc(p.k)}</span><span class="num">${money(p.v)}</span></div>`).join("")}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Próximas compensaciones</h2>
+    ${comps.length ? `<div class="comps">${comps.map(c => {
+        let when = esc(c.txt), falta = "";
+        if (c.fecha){
+          const dias = Math.round((c.fecha - hoy)/86400000);
+          when = c.fecha.toLocaleDateString("es-AR",{weekday:"short", day:"numeric", month:"short"});
+          falta = dias === 0 ? "hoy" : dias === 1 ? "mañana" : dias > 1 ? `en ${dias} días` : `hace ${-dias} días`;
+          return `<div class="comp${dias >= 0 && dias <= 3 ? " soon" : ""}"><div class="when">${esc(when)}</div><div class="in">${falta}</div><div class="num">${money(c.monto)}</div></div>`;
+        }
+        return `<div class="comp"><div class="when">${when}</div><div class="num">${money(c.monto)}</div></div>`;
+      }).join("")}</div>` : `<p class="sub">No hay compensaciones cargadas.</p>`}
+  </section>
+
+  <section id="mora">
+    <h2>Mora histórica <small>% en mora por mes</small></h2>
+    ${d.moraHist.length ? `
+    <div class="controls">
+      <label>Nivel <select id="nivel">
+        <option value="todos">Todos los meses</option>
+        <option value="crit">Crítica (más de 12%)</option>
+        <option value="warn">Alerta (10% a 12%)</option>
+        <option value="ok">Controlada (menos de 10%)</option>
+      </select></label>
+      <span id="conteo" class="sub"></span>
+    </div>
+    <div class="scroll"><table class="heat" id="heat"></table></div>
+    <div class="keys"><span><i style="background:var(--ok)"></i>Menos de 10%</span><span><i style="background:var(--warn)"></i>10% a 12%</span><span><i style="background:var(--crit)"></i>Más de 12%</span></div>
+    <div class="controls" style="margin-top:22px"><span class="sub">Años en el gráfico</span><div class="chips" id="chips"></div></div>
+    <div id="chart"></div>` : `<p class="sub">No se encontraron meses con % de mora en la planilla.</p>`}
+  </section>
+
+  <details class="raw"><summary>Ver cómo se lee la planilla (control)</summary>
+    <div class="scroll"><table class="rawt">${d.raw.map(r => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("")}</table></div>
+  </details>`;
+
+  if (d.moraHist.length){
+    const years = [...new Set(d.moraHist.map(x => x.anio))].sort((a,b) => a-b);
+    if (!selectedYears || !selectedYears.some(y => years.includes(y))) selectedYears = years.slice(-2);
+    $("nivel").value = nivel;
+    $("nivel").addEventListener("change", e => { nivel = e.target.value; renderHeat(d, years); });
+    renderHeat(d, years);
+    renderChips(d, years);
+    renderChart(d);
+  }
+}
+
+function renderHeat(d, years){
+  const by = {};
+  d.moraHist.forEach(x => { (by[x.anio] = by[x.anio] || {})[x.mes] = x; });
+  let head = `<tr><th></th>${MES_CORTO.map(m => `<th scope="col">${m}</th>`).join("")}</tr>`;
+  let body = years.map(y => `<tr><th class="y" scope="row">${y}</th>${MES_CORTO.map((_,m) => {
+    const x = by[y] && by[y][m];
+    if (!x) return `<td class="empty">·</td>`;
+    const lv = nivelDe(x.v);
+    const t = Math.min(1, Math.max(.18, x.v / 16));
+    const col = lv === "ok" ? "var(--ok)" : lv === "warn" ? "var(--warn)" : "var(--crit)";
+    const strong = t > .55;
+    const dim = nivel !== "todos" && nivel !== lv ? " dim" : "";
+    return `<td class="${dim}" style="background:color-mix(in srgb, ${col} ${Math.round(t*85)}%, var(--surface));color:${strong ? "#fff" : "var(--ink)"}" title="${esc(x.label)}: ${pct(x.v)}">${x.v.toFixed(1).replace(".",",")}</td>`;
+  }).join("")}</tr>`).join("");
+  $("heat").innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
+  const n = nivel === "todos" ? d.moraHist.length : d.moraHist.filter(x => nivelDe(x.v) === nivel).length;
+  $("conteo").textContent = nivel === "todos" ? `${n} meses registrados` : `${n} ${n === 1 ? "mes" : "meses"} en este nivel`;
+}
+
+function renderChips(d, years){
+  $("chips").innerHTML = years.map(y => `<button type="button" class="chip" aria-pressed="${selectedYears.includes(y)}" data-y="${y}">${y}</button>`).join("");
+  $("chips").onclick = e => {
+    const b = e.target.closest("button[data-y]"); if (!b) return;
+    const y = +b.dataset.y;
+    selectedYears = selectedYears.includes(y) ? selectedYears.filter(v => v !== y) : [...selectedYears, y];
+    if (!selectedYears.length) selectedYears = [y];
+    renderChips(d, years); renderChart(d);
+  };
+}
+
+function renderChart(d){
+  const el = $("chart"); if (!el) return;
+  const pts = d.moraHist.filter(x => selectedYears.includes(x.anio));
+  if (!pts.length){ el.innerHTML = ""; return; }
+  const W = Math.max(320, el.clientWidth || 700), H = W < 520 ? 220 : 280;
+  const L = 38, R = 12, T = 12, B = 28;
+  const maxV = Math.max(15, Math.ceil(Math.max(...pts.map(p => p.v)) / 5) * 5);
+  const x = i => L + (pts.length === 1 ? (W-L-R)/2 : i * (W-L-R) / (pts.length - 1));
+  const y = v => T + (H-T-B) * (1 - v / maxV);
+  let s = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" role="img" aria-label="Evolución del porcentaje de mora">`;
+  s += `<rect x="${L}" y="${y(maxV)}" width="${W-L-R}" height="${y(12)-y(maxV)}" fill="var(--crit)" opacity=".08"/>`;
+  s += `<rect x="${L}" y="${y(12)}" width="${W-L-R}" height="${y(10)-y(12)}" fill="var(--warn)" opacity=".12"/>`;
+  for (let v = 0; v <= maxV; v += 5){
+    s += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--rule)"/>`;
+    s += `<text x="${L-6}" y="${y(v)+4}" text-anchor="end">${v}%</text>`;
+  }
+  const single = selectedYears.length === 1;
+  pts.forEach((p,i) => {
+    if (single || p.mes === 0 || i === 0){
+      const lab = single ? MES_CORTO[p.mes] : String(p.anio);
+      if (single && W < 520 && p.mes % 2) return;
+      s += `<text x="${x(i)}" y="${H-8}" text-anchor="middle">${lab}</text>`;
+    }
+  });
+  const line = pts.map((p,i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`).join("");
+  s += `<path d="${line}L${x(pts.length-1).toFixed(1)},${y(0)}L${x(0).toFixed(1)},${y(0)}Z" fill="var(--money)" opacity=".12"/>`;
+  s += `<path d="${line}" fill="none" stroke="var(--money)" stroke-width="2.2" stroke-linejoin="round"/>`;
+  pts.forEach((p,i) => {
+    const lv = nivelDe(p.v);
+    const col = lv === "ok" ? "var(--money)" : lv === "warn" ? "var(--warn)" : "var(--crit)";
+    s += `<circle cx="${x(i)}" cy="${y(p.v)}" r="${pts.length > 40 ? 2.5 : 3.5}" fill="${col}"><title>${esc(p.label)}: ${pct(p.v)}</title></circle>`;
+  });
+  el.innerHTML = s + "</svg>";
+}
+let rz; window.addEventListener("resize", () => { clearTimeout(rz); rz = setTimeout(() => current && renderChart(current), 150); });
+
+/* ---------- estado y errores ---------- */
+function banner(msg, crit){
+  const b = $("banner");
+  if (!msg){ b.hidden = true; b.textContent = ""; return; }
+  b.hidden = false; b.className = "banner" + (crit ? " crit" : ""); b.textContent = msg;
+}
+
+function cargar(){
+  if (cargando) return;
+  cargando = true;
+  const btn = $("refresh"); btn.disabled = true; btn.textContent = "Actualizando…";
+  fetch(CSV_URL + "&_=" + Date.now(), {cache:"no-store"})
+    .then(r => { if (!r.ok) throw new Error("respuesta " + r.status); return r.text(); })
+    .then(txt => {
+      if (/^\s*</.test(txt)) throw new Error("la planilla no está publicada como CSV");
+      const d = extraer(txt);
+      if (!d.raw.length) throw new Error("la planilla llegó vacía");
+      current = d; render(d);
+      stampAt = Date.now(); setStamp();
+      $("dot").className = "dot live"; banner("");
+    })
+    .catch(err => {
+      if (current){
+        $("dot").className = "dot stale";
+        banner("No se pudo actualizar (" + err.message + "). Se muestran los últimos datos leídos.");
+      } else {
+        $("main").innerHTML = `<p class="empty-state">No se pudo leer la planilla (${esc(err.message)}). Revisá que siga publicada en la Web (Archivo → Compartir → Publicar en la Web) y tocá Actualizar.</p>`;
+        $("fecha").textContent = "Sin datos";
+        $("stamp").textContent = "Sin conexión con la planilla";
+      }
+    })
+    .finally(() => { cargando = false; btn.disabled = false; btn.textContent = "Actualizar"; });
+}
+function setStamp(){
+  if (!stampAt) return;
+  const mins = Math.floor((Date.now() - stampAt) / 60000);
+  $("stamp").textContent = "Actualizado " + (mins < 1 ? "recién" : mins === 1 ? "hace 1 minuto" : `hace ${mins} minutos`);
+}
+$("refresh").addEventListener("click", cargar);
+setInterval(setStamp, 30000);
+setInterval(() => { if (!document.hidden) cargar(); }, REFRESCO_MS);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && stampAt && Date.now() - stampAt > REFRESCO_MS) cargar();
+});
+cargar();
+})();
+</script>
+</body>
+</html>
