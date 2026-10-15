@@ -32,7 +32,7 @@ body{
 /* Encabezado */
 .hero{ color:#fff; padding-top:env(safe-area-inset-top,0px);
   background:radial-gradient(900px 340px at 50% 30%, #0663AB 0%, var(--brand) 45%, var(--brand-dark) 100%); }
-.hero .in{ max-width:1120px; margin:0 auto; padding:26px clamp(16px,4vw,32px) 30px; }
+.hero .in{ max-width:1120px; margin:0 auto; padding:26px clamp(16px,4vw,32px) 0; }
 .hero .row{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px 20px; }
 .brand img{ display:block; height:clamp(26px,4.4vw,36px); width:auto; }
 h1{ margin:18px 0 0; font-size:clamp(2rem,5.4vw,3.1rem); font-weight:600; line-height:1.02; }
@@ -45,6 +45,17 @@ h1{ margin:18px 0 0; font-size:clamp(2rem,5.4vw,3.1rem); font-weight:600; line-h
 .dot.stale{ background:#F2B84B; }
 .hero button{ background:#fff; color:var(--brand); border:0; font-weight:600; }
 .hero button:hover{ background:#E6EFF8; }
+/* pestañas */
+.tabs{ display:flex; gap:4px; margin-top:18px; }
+.tabs a{
+  display:block; padding:9px 18px; border-radius:10px 10px 0 0;
+  color:rgba(255,255,255,.78); text-decoration:none; font-weight:600; font-size:.98rem;
+  border:1px solid transparent; border-bottom:0; line-height:1.2;
+}
+.tabs a:hover{ color:#fff; background:rgba(255,255,255,.10); }
+.tabs a[aria-current="page"]{ background:var(--bg); color:var(--brand); }
+.tabs a:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+@media (max-width:420px){ .tabs a{ padding:9px 14px; font-size:.92rem; } }
 .hero button:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
 
 .wrap{ max-width:1120px; margin:0 auto; padding:0 clamp(16px,4vw,32px) 48px; }
@@ -69,6 +80,7 @@ h2 small{ font-weight:500; color:var(--muted); font-size:.92rem; }
 
 /* Tira del día: sube sobre el encabezado */
 .strip{ margin-top:26px; }
+.wrap > .banner:first-child{ margin-top:18px; }
 .figs{ display:grid; grid-template-columns:repeat(4,1fr); padding:0; overflow:hidden; }
 @media (max-width:860px){ .figs{ grid-template-columns:repeat(2,1fr); } }
 .fig{ padding:18px 20px; border-left:1px solid var(--rule); }
@@ -161,6 +173,10 @@ footer{ margin-top:30px; padding-top:14px; border-top:1px solid var(--rule); col
     </div>
     <h1 id="fecha">Reporte de cobranzas</h1>
     <p class="resumen" id="resumen">Leyendo la planilla…</p>
+    <nav class="tabs" aria-label="Secciones del reporte">
+      <a href="index.html" aria-current="page">Diario</a>
+      <a href="estimaciones.html">Estimaciones</a>
+    </nav>
   </div>
 </header>
 <div class="wrap">
