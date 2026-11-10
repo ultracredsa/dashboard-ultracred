@@ -105,8 +105,6 @@ h2 small{ font-weight:500; color:var(--muted); font-size:.92rem; }
 .spark{ text-align:right; }
 .spark svg{ display:block; }
 .spark .sub{ font-size:.82rem; }
-.tag{ font-size:.85rem; font-weight:600; padding:3px 10px; border-radius:999px; }
-.tag.ok{ color:var(--ok); background:#E6F4EC; } .tag.warn{ color:#94600A; background:#FBF0D9; } .tag.crit{ color:var(--crit); background:#FBE5E2; }
 .lines{ margin-top:16px; }
 .line{ display:flex; justify-content:space-between; align-items:baseline; gap:8px 12px; flex-wrap:wrap; padding:9px 0; border-top:1px solid var(--rule); }
 .line .num{ font-size:1.25rem; font-weight:600; }
@@ -329,7 +327,6 @@ function extraer(csvText){
 
 /* ---------- render ---------- */
 const nivelDe = v => v > 12 ? "crit" : (v >= 10 ? "warn" : "ok");
-const nivelTxt = {ok:"Controlada", warn:"Alerta", crit:"Crítica"};
 
 function fig(lbl, v, c){ return `<div class="fig" style="--c:${c}"><div class="lbl"><i></i>${lbl}</div><div class="num${v ? "" : " zero"}">${money(v)}</div></div>`; }
 
@@ -381,7 +378,7 @@ function render(d){
       <div class="panel">
         <div class="sub">Morosidad total</div>
         <div class="moraTop">
-          <div class="moraBig"><span class="big">${pct(d.mora)}</span><span class="tag ${lv}">${nivelTxt[lv]}</span></div>
+          <div class="moraBig"><span class="big">${pct(d.mora)}</span></div>
           ${sparkline(d.moraHist)}
         </div>
         <div class="lines">
@@ -431,9 +428,9 @@ function render(d){
     <div class="controls">
       <label>Mostrar <select id="nivel">
         <option value="todos">Todos los meses</option>
-        <option value="crit">Crítica (más de 12%)</option>
-        <option value="warn">Alerta (10% a 12%)</option>
-        <option value="ok">Controlada (menos de 10%)</option>
+        <option value="crit">Más de 12%</option>
+        <option value="warn">Entre 10% y 12%</option>
+        <option value="ok">Menos de 10%</option>
       </select></label>
       <span id="conteo" class="sub"></span>
     </div>
@@ -475,7 +472,7 @@ function renderHeat(d, years){
   }).join("")}</tr>`).join("");
   $("heat").innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
   const n = nivel === "todos" ? d.moraHist.length : d.moraHist.filter(x => nivelDe(x.v) === nivel).length;
-  $("conteo").textContent = nivel === "todos" ? `${n} meses registrados` : `${n} ${n === 1 ? "mes" : "meses"} en este nivel`;
+  $("conteo").textContent = nivel === "todos" ? `${n} meses registrados` : `${n} ${n === 1 ? "mes" : "meses"} en ese rango`;
 }
 
 function renderChips(d, years){
